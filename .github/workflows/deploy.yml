@@ -1,4 +1,4 @@
-name: Generate page
+name: Deploy page
 permissions:
   contents: read
   pages: write
@@ -13,7 +13,6 @@ concurrency:
   
 jobs:
   deploy:
-    needs: run-score-calculator
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
