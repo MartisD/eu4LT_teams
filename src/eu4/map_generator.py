@@ -250,20 +250,20 @@ def generate_interactive_map_data(
     id_img.save(buf, format="PNG", optimize=True)
     prov_id_b64 = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
 
-    # Build multi-mode color palette texture (width = max_pid + 1, height = 6)
-    # Row 0: players
-    # Row 1: political
-    # Row 2: teams
-    # Row 3: naval
-    # Row 4: dev
-    # Row 5: casualties
-    pal_w = max(max_pid + 1, 6000)
-    pal_h = 6
+    # Build multi-mode color palette texture (width = 2048, height = 6 * rows_per_mode)
+    # Using a 2048-wide grid guarantees 100% compatibility across all mobile & desktop GPUs
+    # (many mobile GPUs have MAX_TEXTURE_SIZE = 4096 or 2048)
+    pal_w = 2048
+    rows_per_mode = (max_pid + pal_w) // pal_w
+    pal_h = 6 * rows_per_mode
     pal_bytes = bytearray(pal_w * pal_h * 4)
 
     client_provinces: dict[int, dict[str, Any]] = {}
 
     for pid in range(1, max_pid + 1):
+        col = pid % pal_w
+        row_in_mode = pid // pal_w
+
         is_sea = pid in sea_provinces
         is_waste = pid in wasteland_provinces
 
@@ -328,11 +328,12 @@ def generate_interactive_map_data(
             c_cas = casualty_to_heatmap_color(pinfo.get("casualties", 0))
 
         mode_colors_list = [c_players, c_pol, c_teams, c_naval, c_dev, c_cas]
-        for mode_idx, col in enumerate(mode_colors_list):
-            idx = (mode_idx * pal_w + pid) * 4
-            pal_bytes[idx] = col[0]
-            pal_bytes[idx + 1] = col[1]
-            pal_bytes[idx + 2] = col[2]
+        for mode_idx, col_rgb in enumerate(mode_colors_list):
+            row = mode_idx * rows_per_mode + row_in_mode
+            idx = (row * pal_w + col) * 4
+            pal_bytes[idx] = col_rgb[0]
+            pal_bytes[idx + 1] = col_rgb[1]
+            pal_bytes[idx + 2] = col_rgb[2]
             pal_bytes[idx + 3] = 0 if is_sea else (128 if is_waste else 255)
 
     pal_img = Image.frombytes("RGBA", (pal_w, pal_h), bytes(pal_bytes))
@@ -345,6 +346,7 @@ def generate_interactive_map_data(
         "height": height,
         "palette_width": pal_w,
         "palette_height": pal_h,
+        "rows_per_mode": rows_per_mode,
         "provinces_id_b64": prov_id_b64,
         "palette_b64": palette_b64,
         "provinces_json": json.dumps(client_provinces),

@@ -644,6 +644,10 @@ def _load_coastal_provinces(base_path: str, mod_paths: list[str] | None, data: G
             bmp_path = p
             break
     if not bmp_path:
+        fallback = r"C:\Program Files (x86)\Steam\steamapps\common\Europa Universalis IV\map\provinces.bmp"
+        if os.path.isfile(fallback):
+            bmp_path = fallback
+    if not bmp_path:
         return
 
     try:

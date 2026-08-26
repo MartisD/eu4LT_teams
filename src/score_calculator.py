@@ -595,6 +595,11 @@ def main() -> None:
             if os.path.isfile(p):
                 bmp_path = p
                 break
+        if not bmp_path:
+            fallback = r"C:\Program Files (x86)\Steam\steamapps\common\Europa Universalis IV\map\provinces.bmp"
+            if os.path.isfile(fallback):
+                bmp_path = fallback
+
         for r in all_roots:
             p = os.path.join(r, "map", "definition.csv")
             if os.path.isfile(p):
@@ -611,6 +616,11 @@ def main() -> None:
             if os.path.isfile(p):
                 def_map_path = p
                 break
+        if not def_map_path:
+            fallback = r"C:\Program Files (x86)\Steam\steamapps\common\Europa Universalis IV\map\default.map"
+            if os.path.isfile(fallback):
+                def_map_path = fallback
+
         if def_map_path:
             with open(def_map_path, "r", encoding="utf-8", errors="ignore") as f:
                 map_text = f.read()
@@ -626,16 +636,25 @@ def main() -> None:
                         sea_provinces.add(int(token))
 
         wasteland_provinces: set[int] = set()
+        climate_path = None
         for r in all_roots:
             p = os.path.join(r, "map", "climate.txt")
             if os.path.isfile(p):
-                with open(p, "r", encoding="utf-8", errors="ignore") as f:
-                    c_text = f.read()
-                m = re.search(r"impassable\s*=\s*\{([^}]*)\}", c_text)
-                if m:
-                    for token in m.group(1).split():
-                        if token.isdigit():
-                            wasteland_provinces.add(int(token))
+                climate_path = p
+                break
+        if not climate_path:
+            fallback = r"C:\Program Files (x86)\Steam\steamapps\common\Europa Universalis IV\map\climate.txt"
+            if os.path.isfile(fallback):
+                climate_path = fallback
+
+        if climate_path:
+            with open(climate_path, "r", encoding="utf-8", errors="ignore") as f:
+                c_text = f.read()
+            m = re.search(r"impassable\s*=\s*\{([^}]*)\}", c_text)
+            if m:
+                for token in m.group(1).split():
+                    if token.isdigit():
+                        wasteland_provinces.add(int(token))
 
         if bmp_path and def_path:
             print("Generating GPU WebGL2 interactive map assets (5632x2048)...")
