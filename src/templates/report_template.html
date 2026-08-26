@@ -1,0 +1,2676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EU4 Tournament Score Report</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0b0f19;
+            --bg-surface: #111827;
+            --bg-card: #1f2937;
+            --bg-card-hover: #283548;
+            --border-color: #374151;
+            --border-subtle: #1f2937;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --text-dim: #6b7280;
+            --team1-primary: #3b82f6;
+            --team1-bg: rgba(59, 130, 246, 0.12);
+            --team1-border: rgba(59, 130, 246, 0.35);
+            --team2-primary: #ef4444;
+            --team2-bg: rgba(239, 68, 68, 0.12);
+            --team2-border: rgba(239, 68, 68, 0.35);
+            --accent-gold: #f59e0b;
+            --accent-emerald: #10b981;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 28px 20px 60px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* ── Header ── */
+        header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+        }
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* ── Alert Notices ── */
+        .notice-box {
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            border-radius: var(--radius-md);
+            padding: 12px 18px;
+            font-size: 13px;
+            color: #fde68a;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .notice-box .icon { font-size: 18px; }
+
+        /* ── Team Scoreboard Hero ── */
+        .team-cards-row, .scoreboard-hero {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 36px;
+        }
+
+        .team-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-card);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s ease;
+        }
+        .team-card.team1 {
+            border-color: var(--team1-border);
+            background: linear-gradient(180deg, rgba(59, 130, 246, 0.08) 0%, rgba(17, 24, 39, 0.95) 100%);
+        }
+        .team-card.team2 {
+            border-color: var(--team2-border);
+            background: linear-gradient(180deg, rgba(239, 68, 68, 0.08) 0%, rgba(17, 24, 39, 0.95) 100%);
+        }
+
+        .team-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .team-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 20px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .team1 .team-title { color: var(--team1-primary); }
+        .team2 .team-title { color: var(--team2-primary); }
+
+        .team-score-badge {
+            font-family: 'Outfit', sans-serif;
+            font-size: 38px;
+            font-weight: 800;
+            line-height: 1;
+        }
+        .team1 .team-score-badge { color: #60a5fa; }
+        .team2 .team-score-badge { color: #f87171; }
+        .team-score-unit { font-size: 14px; font-weight: 600; color: var(--text-muted); margin-left: 4px; }
+
+        .team-roster {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+        .roster-pill {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 6px 10px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .roster-role {
+            color: var(--text-dim);
+            font-size: 10px;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .roster-tag {
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .vs-divider {
+            text-align: center;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 20px;
+            color: var(--text-dim);
+            padding: 8px;
+        }
+
+        /* ── Section Titles ── */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 40px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .section-heading {
+            font-family: 'Outfit', sans-serif;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ── Role Matchup Cards ── */
+        .matchups-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        @media (max-width: 992px) {
+            .matchups-grid { grid-template-columns: 1fr; }
+        }
+
+        .matchup-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-card);
+        }
+        .matchup-header {
+            padding: 16px 20px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .matchup-role-tag {
+            font-family: 'Outfit', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .role-badge {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 2px 8px;
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .matchup-score-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 15px;
+        }
+        .score-t1 { color: #60a5fa; }
+        .score-t2 { color: #f87171; }
+
+        .matchup-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .matchup-table th, .matchup-table td {
+            padding: 10px 16px;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border-subtle);
+            text-align: left;
+        }
+        .matchup-table th {
+            background: rgba(0, 0, 0, 0.2);
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .matchup-table tr:last-child td { border-bottom: none; }
+        .matchup-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+        .metric-cell {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+        .pts-chip {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-muted);
+            border-radius: var(--radius-sm);
+            padding: 1px 6px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .approx-tag {
+            font-size: 10px;
+            color: var(--accent-gold);
+            background: rgba(245, 158, 11, 0.12);
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
+
+        .val-t1, .val-t2 {
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+        }
+        .winner-t1 { color: #60a5fa; font-weight: 700; }
+        .winner-t2 { color: #f87171; font-weight: 700; }
+        .winner-badge {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .winner-badge.t1 { background: var(--team1-bg); color: #93c5fd; border: 1px solid var(--team1-border); }
+        .winner-badge.t2 { background: var(--team2-bg); color: #fca5a5; border: 1px solid var(--team2-border); }
+        
+        /* Expandable Metric Breakdown Rows */
+        .metric-row-clickable {
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .metric-row-clickable:hover td {
+            background: rgba(255, 255, 255, 0.05) !important;
+        }
+        .expand-arrow {
+            font-size: 8px;
+            color: var(--text-dim);
+            margin-left: 6px;
+            transition: transform 0.2s ease, color 0.2s ease;
+            display: inline-block;
+        }
+        .metric-row-clickable.expanded .expand-arrow {
+            transform: rotate(180deg);
+            color: #60a5fa;
+        }
+        .metric-details-row td {
+            padding: 0 !important;
+            background: rgba(11, 15, 25, 0.85) !important;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .metric-breakdown-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            padding: 12px 16px 14px 16px;
+            animation: fadeIn 0.15s ease-in-out;
+        }
+        .metric-breakdown-col {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+        }
+        .metric-breakdown-col.t1-col {
+            border-left: 3px solid #3b82f6;
+        }
+        .metric-breakdown-col.t2-col {
+            border-left: 3px solid #ef4444;
+        }
+        .metric-breakdown-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .metric-breakdown-header .country-tag-badge {
+            font-size: 10px;
+            padding: 1px 5px;
+        }
+        .breakdown-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .bk-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--text-muted);
+            padding: 2px 0;
+        }
+        .bk-lbl {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 75%;
+        }
+        .bk-val {
+            font-weight: 700;
+            color: #93c5fd;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+        }
+        .metric-breakdown-col.t2-col .bk-val {
+            color: #fca5a5;
+        }
+        .bk-empty {
+            font-size: 11px;
+            color: var(--text-dim);
+            font-style: italic;
+        }
+        
+        .container {
+            max-width: 1640px;
+            width: 95%;
+            margin: 0 auto;
+        }
+
+        /* ── Header ── */
+        header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 34px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        /* ── Country Cards Grid (Replacing Long Accordions) ── */
+        .country-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        .country-overview-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            box-shadow: var(--shadow-card);
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .country-overview-card:hover {
+            transform: translateY(-2px);
+            border-color: #4b5563;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        }
+        .country-overview-card.team1 {
+            border-left: 4px solid var(--team1-primary);
+        }
+        .country-overview-card.team2 {
+            border-left: 4px solid var(--team2-primary);
+        }
+        .card-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .card-player-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card-player-name {
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--text-main);
+        }
+        .card-score-badge {
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            color: #fbbf24;
+            font-weight: 800;
+            font-size: 14px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-family: 'Outfit', sans-serif;
+        }
+        .card-meta-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .card-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 10px;
+            margin-bottom: 14px;
+        }
+        .card-stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .card-stat-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-dim);
+            font-weight: 600;
+        }
+        .card-stat-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-top: 1px;
+        }
+        .card-view-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: #93c5fd;
+            border-radius: var(--radius-sm);
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }
+        .card-view-btn:hover {
+            background: #2563eb;
+            color: #ffffff;
+            border-color: #3b82f6;
+            box-shadow: 0 0 12px rgba(37, 99, 235, 0.4);
+        }
+
+        /* ── Interactive World Map Section ── */
+        .map-section {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+        .map-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .map-title-wrap h3 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 4px;
+        }
+        .map-subtitle {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+        .map-mode-toolbar {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .map-mode-btn {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 7px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .map-mode-btn:hover {
+            background: rgba(30, 41, 59, 0.9);
+            color: var(--text-main);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .map-mode-btn.active {
+            background: #2563eb;
+            color: #ffffff;
+            border-color: #3b82f6;
+            box-shadow: 0 0 12px rgba(37, 99, 235, 0.4);
+        }
+        .map-viewport-wrapper {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            background: #4c739e;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            cursor: grab;
+            user-select: none;
+        }
+        .map-viewport-wrapper.dragging {
+            cursor: grabbing;
+        }
+        .map-viewport-wrapper.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 99999;
+            border-radius: 0;
+        }
+        #eu4-map-svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .prov-path {
+            stroke: rgba(15, 23, 42, 0.40);
+            stroke-width: 0.6px;
+            stroke-linejoin: round;
+            stroke-linecap: round;
+            cursor: pointer;
+            transition: fill 0.12s ease;
+        }
+        .prov-path:hover {
+            filter: brightness(1.22);
+        }
+        .prov-hover-hl {
+            fill: rgba(255, 255, 255, 0.35);
+            stroke: #ffffff;
+            stroke-width: 2px;
+            stroke-linejoin: round;
+            stroke-linecap: round;
+            pointer-events: none !important;
+            filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.6));
+        }
+        .map-controls {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 100;
+        }
+        .map-ctrl-btn {
+            width: 34px;
+            height: 34px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--text-main);
+            border-radius: var(--radius-sm);
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+        .map-ctrl-btn:hover {
+            background: rgba(30, 41, 59, 0.95);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: #60a5fa;
+        }
+        .map-legend {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            background: rgba(15, 23, 42, 0.90);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: var(--radius-md);
+            padding: 10px 14px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 14px;
+            max-width: 80%;
+            z-index: 100;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-main);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+            pointer-events: auto;
+        }
+        .map-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .map-legend-swatch {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            flex-shrink: 0;
+        }
+        .map-tooltip {
+            position: absolute;
+            pointer-events: none !important;
+            z-index: 1000;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+            min-width: 220px;
+            max-width: 320px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--text-main);
+        }
+        .map-tooltip h5 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .tt-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 3px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .tt-val {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        /* ── Slide-Out Country Details Drawer ── */
+        .drawer-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(4, 7, 15, 0.65);
+            backdrop-filter: blur(5px);
+            z-index: 99999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .drawer-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .drawer-sidebar {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 780px;
+            max-width: 92vw;
+            height: 100vh;
+            background: var(--bg-surface);
+            border-left: 1px solid var(--border-color);
+            box-shadow: -15px 0 50px rgba(0, 0, 0, 0.85);
+            z-index: 100000;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+        }
+        .drawer-overlay.active .drawer-sidebar {
+            transform: translateX(0);
+        }
+        .drawer-country-content {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+        .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 24px;
+            background: rgba(17, 24, 39, 0.98);
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+        .drawer-title-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .drawer-player-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+        .drawer-close-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .drawer-close-btn:hover {
+            background: rgba(239, 68, 68, 0.25);
+            color: #ef4444;
+            border-color: #ef4444;
+        }
+        .drawer-tab-nav {
+            display: flex;
+            gap: 6px;
+            padding: 12px 24px 0;
+            background: rgba(15, 23, 42, 0.7);
+            border-bottom: 1px solid var(--border-color);
+            overflow-x: auto;
+            flex-shrink: 0;
+        }
+        .drawer-tab-btn {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-muted);
+            padding: 8px 14px 12px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .drawer-tab-btn:hover {
+            color: var(--text-main);
+        }
+        .drawer-tab-btn.active {
+            color: #60a5fa;
+            border-bottom-color: #3b82f6;
+        }
+        .drawer-body {
+            padding: 20px 24px 40px;
+            overflow-y: auto;
+            flex: 1;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+        }
+        .drawer-body::-webkit-scrollbar {
+            width: 6px;
+        }
+        .drawer-body::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        .drawer-tab-pane {
+            display: none;
+            animation: fadeIn 0.15s ease-in-out;
+        }
+        .drawer-tab-pane.active {
+            display: block;
+        }
+
+        .country-tag-badge {
+            background: #2563eb;
+            color: #fff;
+            padding: 3px 10px;
+            border-radius: var(--radius-sm);
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+        }
+        .country-tag-badge.team2 { background: #dc2626; }
+        .role-pill {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+        }
+
+        .panel-section-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin: 18px 0 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .panel-section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-subtle);
+        }
+        .panel-section-title:first-child {
+            margin-top: 0;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 12px;
+        }
+        .stat-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 10px 14px;
+        }
+        .stat-box h4 {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .stat-val {
+            font-family: 'Outfit', sans-serif;
+            font-size: 20px;
+            font-weight: 700;
+            color: #f3f4f6;
+        }
+        .breakdown {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 4px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .breakdown span {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+            padding: 1px 5px;
+        }
+        .na { color: var(--text-dim); font-style: italic; font-size: 14px; }
+
+        /* ── Country Dashboard Tabs (Skanderbeg / PDX Tools style) ── */
+        .country-tab-nav {
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+            overflow-x: auto;
+        }
+        .country-tab-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-muted);
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .country-tab-btn:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.04);
+        }
+        .country-tab-btn.active {
+            color: #60a5fa;
+            background: rgba(59, 130, 246, 0.12);
+            border-color: rgba(59, 130, 246, 0.35);
+        }
+        .country-tab-pane {
+            display: none;
+        }
+        .country-tab-pane.active {
+            display: block;
+        }
+
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .tag-item {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 6px 12px;
+            font-size: 12px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tag-badge {
+            background: #2563eb;
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 10px;
+        }
+        .tag-badge.completed {
+            background: #10b981;
+        }
+        .advisor-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .advisor-skill {
+            background: rgba(245, 158, 11, 0.2);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            color: #fbbf24;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        /* ── Most Dev Province Card ── */
+        .footer-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 14px 20px;
+            margin-top: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            color: va        /* ── Interactive Vector Map Section ── */
+        .map-section {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin-bottom: 32px;
+            box-shadow: var(--shadow-card);
+        }
+        .map-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .map-title-wrap h3 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+        .map-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .map-mode-toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .map-mode-btn {
+            background: var(--bg-card);
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .map-mode-btn:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-main);
+            border-color: #4b5563;
+        }
+        .map-mode-btn.active {
+            background: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+            border-color: #3b82f6;
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .map-viewport-wrapper {
+            position: relative;
+            width: 100%;
+            height: 660px;
+            background: #111827;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            cursor: grab;
+            user-select: none;
+        }
+        .map-viewport-wrapper.dragging {
+            cursor: grabbing;
+        }
+        .map-viewport-wrapper.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 99999;
+            border-radius: 0;
+            border: none;
+        }
+        #eu4-map-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: #111827;
+        }
+
+        .map-controls {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 10;
+        }
+        .map-ctrl-btn {
+            width: 34px;
+            height: 34px;
+            background: rgba(17, 24, 39, 0.85);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: var(--radius-sm);
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            transition: all 0.15s ease;
+        }
+        .map-ctrl-btn:hover {
+            background: rgba(31, 41, 55, 0.95);
+            border-color: #60a5fa;
+            color: #60a5fa;
+        }
+
+        .map-tooltip {
+            position: absolute;
+            pointer-events: none;
+            z-index: 20;
+            background: rgba(17, 24, 39, 0.92);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            font-size: 12px;
+            color: var(--text-main);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            max-width: 260px;
+            transform: translate(12px, 12px);
+            transition: opacity 0.1s ease;
+        }
+        .map-tooltip h5 {
+            font-size: 13px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .map-tooltip .tt-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 3px;
+            color: var(--text-muted);
+        }
+        .map-tooltip .tt-val {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .map-legend {
+            position: absolute;
+            bottom: 14px;
+            left: 14px;
+            z-index: 10;
+            background: rgba(17, 24, 39, 0.85);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 8px 12px;
+            font-size: 11px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            backdrop-filter: blur(8px);
+        }
+        .map-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-muted);
+        }
+        .map-legend-swatch {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+    </style>
+    <script>
+        // Slide-Out Drawer Control Functions
+        function switchDrawerTab(btn, tag, tabName) {
+            const parent = document.getElementById('drawer-country-' + tag);
+            if (!parent) return;
+            parent.querySelectorAll('.drawer-tab-btn').forEach(b => b.classList.remove('active'));
+            parent.querySelectorAll('.drawer-tab-pane').forEach(p => p.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            const pane = parent.querySelector(`.drawer-tab-pane[data-pane="${tabName}-${tag}"]`);
+            if (pane) pane.classList.add('active');
+        }
+
+        function toggleMetricDetails(row) {
+            const nextRow = row.nextElementSibling;
+            if (nextRow && nextRow.classList.contains('metric-details-row')) {
+                const isHidden = (nextRow.style.display === 'none' || !nextRow.style.display);
+                nextRow.style.display = isHidden ? 'table-row' : 'none';
+                row.classList.toggle('expanded', isHidden);
+            }
+        }
+
+        function openCountryDrawer(tag) {
+            const overlay = document.getElementById('countryDrawerOverlay');
+            if (!overlay) return;
+            document.querySelectorAll('.drawer-country-content').forEach(p => p.style.display = 'none');
+            const targetCountry = document.getElementById('drawer-country-' + tag);
+            if (targetCountry) {
+                targetCountry.style.display = 'flex';
+                const firstBtn = targetCountry.querySelector('.drawer-tab-btn');
+                if (firstBtn) {
+                    const tabKey = firstBtn.getAttribute('data-tab');
+                    const tabName = tabKey ? tabKey.split('-')[0] : 'military';
+                    switchDrawerTab(firstBtn, tag, tabName);
+                }
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        function closeCountryDrawer(e) {
+            if (e && e.target && e.target.closest && e.target.closest('.drawer-sidebar') && !e.target.closest('.drawer-close-btn')) {
+                return;
+            }
+            const overlay = document.getElementById('countryDrawerOverlay');
+            if (overlay) {
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            window.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') closeCountryDrawer();
+            });
+
+            initEU4Map();
+        });
+
+        function initEU4Map() {
+            const canvas = document.getElementById('eu4-map-canvas');
+            const wrapper = document.getElementById('map-wrapper');
+            const tooltip = document.getElementById('map-tooltip');
+            const legend = document.getElementById('map-legend');
+            if (!canvas || !wrapper) return;
+
+            const mapW = {{ map_data.width if map_data else 5632 }};
+            const mapH = {{ map_data.height if map_data else 2048 }};
+            const palW = {{ map_data.palette_width if map_data else 6000 }};
+            const palH = {{ map_data.palette_height if map_data else 6 }};
+            const provIdSrc = "{{ map_data.provinces_id_b64 if map_data else '' }}";
+            const palSrc = "{{ map_data.palette_b64 if map_data else '' }}";
+            const provData = {{ map_data.provinces_json|safe if map_data else '{}' }};
+
+            const gl = canvas.getContext('webgl2', { antialias: false, depth: false, preserveDrawingBuffer: false });
+            if (!gl) {
+                console.error("WebGL2 not supported in this browser.");
+                return;
+            }
+
+            // ── WebGL2 Shaders ──
+            const vsSource = `#version 300 es
+            in vec2 a_pos;
+            out vec2 v_uv;
+            uniform vec2 u_pan;
+            uniform vec2 u_scale;
+
+            void main() {
+                gl_Position = vec4(a_pos, 0.0, 1.0);
+                vec2 ndc_uv = vec2((a_pos.x + 1.0) * 0.5, (1.0 - a_pos.y) * 0.5);
+                v_uv = ndc_uv * u_scale + u_pan;
+            }`;
+
+            const fsSource = `#version 300 es
+            precision highp float;
+
+            in vec2 v_uv;
+            out vec4 fragColor;
+
+            uniform sampler2D u_provinces;
+            uniform sampler2D u_palette;
+            uniform vec2 u_resolution;
+            uniform vec2 u_screen_size;
+            uniform vec2 u_scale;
+            uniform float u_palette_w;
+            uniform float u_palette_h;
+            uniform int u_map_mode;
+            uniform int u_hovered_pid;
+
+            int raw_pid_at(vec2 uv) {
+                if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0;
+                vec4 p = texture(u_provinces, uv);
+                return int(p.r * 255.0 + 0.5) + int(p.g * 255.0 + 0.5) * 256;
+            }
+
+            // Subpixel xBR Edge-Smoother: turns 90-degree pixel staircases into smooth rounded curves
+            int sample_smooth_pid(vec2 uv) {
+                if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0;
+
+                vec2 pos = uv * u_resolution - 0.5;
+                vec2 f = fract(pos);
+                vec2 center = (floor(pos) + 0.5) / u_resolution;
+                vec2 d = 1.0 / u_resolution;
+
+                int E = raw_pid_at(center);
+                int B = raw_pid_at(center + vec2(0.0, -d.y));  // Top
+                int H = raw_pid_at(center + vec2(0.0, d.y));   // Bottom
+                int D = raw_pid_at(center + vec2(-d.x, 0.0));  // Left
+                int F = raw_pid_at(center + vec2(d.x, 0.0));   // Right
+
+                if (E == B && E == H && E == D && E == F) return E;
+
+                // Diagonal corner smoothing
+                if (f.x < 0.5 && f.y < 0.5) {
+                    if (D == B && D != E) {
+                        if ((0.5 - f.x) + (0.5 - f.y) > 0.42) return D;
+                    }
+                } else if (f.x >= 0.5 && f.y < 0.5) {
+                    if (F == B && F != E) {
+                        if ((f.x - 0.5) + (0.5 - f.y) > 0.42) return F;
+                    }
+                } else if (f.x < 0.5 && f.y >= 0.5) {
+                    if (D == H && D != E) {
+                        if ((0.5 - f.x) + (f.y - 0.5) > 0.42) return D;
+                    }
+                } else if (f.x >= 0.5 && f.y >= 0.5) {
+                    if (F == H && F != E) {
+                        if ((f.x - 0.5) + (f.y - 0.5) > 0.42) return F;
+                    }
+                }
+
+                return E;
+            }
+
+            vec4 get_palette_color(int pid, int mode) {
+                if (pid <= 0) return vec4(0.16, 0.22, 0.30, 1.0);
+                vec2 p_uv = vec2((float(pid) + 0.5) / u_palette_w, (float(mode) + 0.5) / u_palette_h);
+                return texture(u_palette, p_uv);
+            }
+
+            void main() {
+                if (v_uv.x < 0.0 || v_uv.x > 1.0 || v_uv.y < 0.0 || v_uv.y > 1.0) {
+                    fragColor = vec4(0.11, 0.15, 0.21, 1.0);
+                    return;
+                }
+
+                int pid_c = sample_smooth_pid(v_uv);
+                vec4 col_c = get_palette_color(pid_c, u_map_mode);
+                bool is_sea_c = (col_c.a < 0.25);
+
+                if (pid_c == 0) {
+                    fragColor = col_c;
+                    return;
+                }
+
+                // Screen-Space Sampling Step for smooth, non-scaling crisp borders
+                vec2 screen_step = (u_scale / u_screen_size) * 1.30;
+
+                int pid_t = sample_smooth_pid(v_uv + vec2(0.0, -screen_step.y));
+                int pid_b = sample_smooth_pid(v_uv + vec2(0.0, screen_step.y));
+                int pid_l = sample_smooth_pid(v_uv + vec2(-screen_step.x, 0.0));
+                int pid_r = sample_smooth_pid(v_uv + vec2(screen_step.x, 0.0));
+
+                vec4 col_t = get_palette_color(pid_t, u_map_mode);
+                vec4 col_b = get_palette_color(pid_b, u_map_mode);
+                vec4 col_l = get_palette_color(pid_l, u_map_mode);
+                vec4 col_r = get_palette_color(pid_r, u_map_mode);
+
+                bool is_sea_t = (col_t.a < 0.25);
+                bool is_sea_b = (col_b.a < 0.25);
+                bool is_sea_l = (col_l.a < 0.25);
+                bool is_sea_r = (col_r.a < 0.25);
+
+                bool prov_border = (pid_c != pid_t || pid_c != pid_b || pid_c != pid_l || pid_c != pid_r);
+                bool country_border = (col_c.rgb != col_t.rgb || col_c.rgb != col_b.rgb || col_c.rgb != col_l.rgb || col_c.rgb != col_r.rgb);
+                bool coast_border = (!is_sea_c && (is_sea_t || is_sea_b || is_sea_l || is_sea_r));
+                bool ocean_coast = (is_sea_c && (!is_sea_t || !is_sea_b || !is_sea_l || !is_sea_r));
+
+                bool is_hovered = (pid_c == u_hovered_pid && u_hovered_pid > 0);
+                bool is_hover_border = is_hovered && prov_border;
+                bool neighbor_hovered = (!is_hovered && u_hovered_pid > 0 && (pid_t == u_hovered_pid || pid_b == u_hovered_pid || pid_l == u_hovered_pid || pid_r == u_hovered_pid));
+
+                vec3 final_rgb = col_c.rgb;
+
+                if (is_sea_c) {
+                    if (ocean_coast) {
+                        final_rgb = mix(final_rgb, vec3(0.35, 0.51, 0.68), 0.40);
+                    }
+                } else {
+                    if (is_hovered) {
+                        final_rgb = mix(final_rgb, vec3(1.0, 1.0, 1.0), 0.20);
+                    }
+
+                    // Hierarchical, vector-quality smooth borders
+                    if (coast_border) {
+                        final_rgb = mix(final_rgb, vec3(0.08, 0.12, 0.18), 0.70);
+                    } else if (country_border) {
+                        final_rgb = mix(final_rgb, vec3(0.04, 0.06, 0.09), 0.60);
+                    } else if (prov_border) {
+                        final_rgb = mix(final_rgb, vec3(0.0, 0.0, 0.0), 0.25);
+                    }
+
+                    if (is_hover_border || (neighbor_hovered && !is_sea_c)) {
+                        final_rgb = vec3(0.38, 0.72, 1.0);
+                    }
+                }
+
+                fragColor = vec4(final_rgb, 1.0);
+            }`;
+
+            function createShader(gl, type, source) {
+                const shader = gl.createShader(type);
+                gl.shaderSource(shader, source);
+                gl.compileShader(shader);
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    console.error(gl.getShaderInfoLog(shader));
+                    gl.deleteShader(shader);
+                    return null;
+                }
+                return shader;
+            }
+
+            const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
+            const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+            const program = gl.createProgram();
+            gl.attachShader(program, vs);
+            gl.attachShader(program, fs);
+            gl.linkProgram(program);
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error(gl.getProgramInfoLog(program));
+                return;
+            }
+            gl.useProgram(program);
+
+            // Fullscreen Quad Buffer
+            const posBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                -1, -1,
+                 1, -1,
+                -1,  1,
+                -1,  1,
+                 1, -1,
+                 1,  1,
+            ]), gl.STATIC_DRAW);
+
+            const aPos = gl.getAttribLocation(program, 'a_pos');
+            gl.enableVertexAttribArray(aPos);
+            gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+            // Uniform locations
+            const uPanLoc = gl.getUniformLocation(program, 'u_pan');
+            const uScaleLoc = gl.getUniformLocation(program, 'u_scale');
+            const uResLoc = gl.getUniformLocation(program, 'u_resolution');
+            const uScreenSizeLoc = gl.getUniformLocation(program, 'u_screen_size');
+            const uPalWLoc = gl.getUniformLocation(program, 'u_palette_w');
+            const uPalHLoc = gl.getUniformLocation(program, 'u_palette_h');
+            const uMapModeLoc = gl.getUniformLocation(program, 'u_map_mode');
+            const uHoveredPidLoc = gl.getUniformLocation(program, 'u_hovered_pid');
+            const uProvincesLoc = gl.getUniformLocation(program, 'u_provinces');
+            const uPaletteLoc = gl.getUniformLocation(program, 'u_palette');
+
+            gl.uniform2f(uResLoc, mapW, mapH);
+            gl.uniform1f(uPalWLoc, palW);
+            gl.uniform1f(uPalHLoc, palH);
+            gl.uniform1i(uProvincesLoc, 0);
+            gl.uniform1i(uPaletteLoc, 1);
+
+            // Setup Textures
+            const provTex = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, provTex);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+            const palTex = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, palTex);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+            let provImgLoaded = false;
+            let palImgLoaded = false;
+            let imgData = null;
+
+            const provImg = new Image();
+            provImg.onload = function() {
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, provTex);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, provImg);
+                provImgLoaded = true;
+
+                // Offscreen canvas for instant 60fps hover hit-testing
+                const offCanvas = document.createElement('canvas');
+                offCanvas.width = mapW;
+                offCanvas.height = mapH;
+                const offCtx = offCanvas.getContext('2d', { willReadFrequently: true });
+                offCtx.drawImage(provImg, 0, 0);
+                imgData = offCtx.getImageData(0, 0, mapW, mapH).data;
+
+                render();
+            };
+            provImg.src = provIdSrc;
+
+            const palImg = new Image();
+            palImg.onload = function() {
+                gl.activeTexture(gl.TEXTURE1);
+                gl.bindTexture(gl.TEXTURE_2D, palTex);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, palImg);
+                palImgLoaded = true;
+                render();
+            };
+            palImg.src = palSrc;
+
+            // Viewport & Navigation
+            let scale = 1.0;
+            let minScale = 0.08;
+            let maxScale = 30.0;
+            let panX = 0;
+            let panY = 0;
+            let hoveredPid = 0;
+            let activeModeIdx = 0;
+            let activeMode = 'players';
+
+            const modeMap = {
+                'players': 0,
+                'political': 1,
+                'teams': 2,
+                'naval': 3,
+                'dev': 4,
+                'casualties': 5
+            };
+
+            function resizeCanvas() {
+                const rect = wrapper.getBoundingClientRect();
+                const dpr = window.devicePixelRatio || 1;
+                const displayWidth = Math.round(rect.width * dpr);
+                const displayHeight = Math.round(rect.height * dpr);
+                if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+                    canvas.width = displayWidth;
+                    canvas.height = displayHeight;
+                    gl.viewport(0, 0, canvas.width, canvas.height);
+                }
+            }
+
+            function render() {
+                if (!provImgLoaded || !palImgLoaded) return;
+                resizeCanvas();
+
+                const rect = wrapper.getBoundingClientRect();
+                const cw = rect.width;
+                const ch = rect.height;
+
+                const uScaleX = cw / (scale * mapW);
+                const uScaleY = ch / (scale * mapH);
+                const uPanX = -panX / (scale * mapW);
+                const uPanY = -panY / (scale * mapH);
+
+                gl.useProgram(program);
+                gl.uniform2f(uScaleLoc, uScaleX, uScaleY);
+                gl.uniform2f(uPanLoc, uPanX, uPanY);
+                gl.uniform2f(uScreenSizeLoc, cw, ch);
+                gl.uniform1i(uMapModeLoc, activeModeIdx);
+                gl.uniform1i(uHoveredPidLoc, hoveredPid);
+
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+            }
+
+            function clampPan() {
+                const rect = wrapper.getBoundingClientRect();
+                const cw = rect.width;
+                const ch = rect.height;
+                if (!cw || !ch) return;
+
+                // Minimum scale so map always fills the viewport without exposing empty background
+                minScale = Math.max(cw / mapW, ch / mapH);
+                if (scale < minScale) {
+                    scale = minScale;
+                }
+
+                const currentMapW = mapW * scale;
+                const currentMapH = mapH * scale;
+
+                // Confine horizontal movement
+                if (currentMapW <= cw) {
+                    panX = (cw - currentMapW) / 2;
+                } else {
+                    const minPanX = cw - currentMapW;
+                    const maxPanX = 0;
+                    panX = Math.max(minPanX, Math.min(maxPanX, panX));
+                }
+
+                // Confine vertical movement
+                if (currentMapH <= ch) {
+                    panY = (ch - currentMapH) / 2;
+                } else {
+                    const minPanY = ch - currentMapH;
+                    const maxPanY = 0;
+                    panY = Math.max(minPanY, Math.min(maxPanY, panY));
+                }
+            }
+
+            function fitMapToView() {
+                const rect = wrapper.getBoundingClientRect();
+                if (!rect.width || !rect.height) return;
+                // Initial scale: comfortable focused view of Old World (Europe / Mediterranean / Asia)
+                scale = Math.max(rect.width / mapW, rect.height / mapH) * 1.85;
+                panX = rect.width / 2 - mapW * 0.40 * scale;
+                panY = rect.height / 2 - mapH * 0.38 * scale;
+                clampPan();
+                render();
+            }
+
+            function setMapMode(mode) {
+                activeMode = mode;
+                activeModeIdx = modeMap[mode] !== undefined ? modeMap[mode] : 0;
+                document.querySelectorAll('.map-mode-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
+                });
+                render();
+                updateLegend();
+            }
+
+            function updateLegend() {
+                if (!legend) return;
+                if (activeMode === 'players' || activeMode === 'political') {
+                    legend.innerHTML = `
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#eab308"></div> SPA</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#2563eb"></div> FRA</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#fcfcfe"></div> HAB</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#10b981"></div> MUG</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#a21caf"></div> MLC</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#b4325f"></div> RUS</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#0ea5e9"></div> BAH</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#f59e0b"></div> QNG</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#9f1239"></div> BUR</div>
+                        ${activeMode === 'players' ? '<div class="map-legend-item"><div class="map-legend-swatch" style="background:#2a3444"></div> Neutral / Non-Player</div>' : ''}
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#4b5563"></div> Wastelands</div>
+                    `;
+                } else if (activeMode === 'teams') {
+                    legend.innerHTML = `
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#2563eb"></div> Team 1 (SPA, FRA, HAB, MUG, BUR)</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#ef4444"></div> Team 2 (MLC, RUS, BAH, QNG)</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#2a3444"></div> Unaligned / Neutral</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#4b5563"></div> Wastelands</div>
+                    `;
+                } else if (activeMode === 'naval') {
+                    legend.innerHTML = `
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#0ea5e9"></div> Coastal Province</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#f59e0b"></div> Naval Supplies (+0.5 FL)</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#38bdf8"></div> Shipyard / Port</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#232d3c"></div> Inland</div>
+                    `;
+                } else if (activeMode === 'dev') {
+                    legend.innerHTML = `
+                        <div class="map-legend-item" style="gap:10px;">
+                            <span style="color:var(--text-muted); font-weight:600;">Low (1 Dev)</span>
+                            <div style="width:140px; height:10px; border-radius:3px; background: linear-gradient(to right, #182d52, #0e74b9, #0ea5e9, #22c55e, #eab308, #f97316, #ef4444, #f43f5e); border: 1px solid rgba(255,255,255,0.2);"></div>
+                            <span style="color:var(--text-muted); font-weight:600;">High (60+ Dev)</span>
+                        </div>
+                    `;
+                } else if (activeMode === 'casualties') {
+                    legend.innerHTML = `
+                        <div class="map-legend-item" style="gap:10px;">
+                            <span style="color:var(--text-muted); font-weight:600;">Peaceful (0 Dead)</span>
+                            <div style="width:150px; height:10px; border-radius:3px; background: linear-gradient(to right, #1e293b, #1e3a8a, #10b981, #eab308, #f97316, #ef4444, #d946ef); border: 1px solid rgba(255,255,255,0.2);"></div>
+                            <span style="color:var(--text-muted); font-weight:600;">Bloodbath (350k+ Dead)</span>
+                        </div>
+                    `;
+                }
+            }
+
+            // Panning Handlers
+            let isDragging = false;
+            let dragDist = 0;
+            let startX = 0;
+            let startY = 0;
+
+            wrapper.addEventListener('mousedown', e => {
+                if (e.target.closest('.map-controls') || e.target.closest('.map-legend')) return;
+                isDragging = true;
+                dragDist = 0;
+                startX = e.clientX - panX;
+                startY = e.clientY - panY;
+                wrapper.classList.add('dragging');
+            });
+
+            wrapper.addEventListener('mousemove', e => {
+                if (isDragging) {
+                    panX = e.clientX - startX;
+                    panY = e.clientY - startY;
+                    dragDist += Math.hypot(e.movementX, e.movementY);
+                    clampPan();
+                    render();
+                    if (tooltip) tooltip.style.display = 'none';
+                    return;
+                }
+
+                if (!imgData) return;
+                const rect = wrapper.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                const mapX = Math.floor((mouseX - panX) / scale);
+                const mapY = Math.floor((mouseY - panY) / scale);
+
+                let newHoverPid = 0;
+                if (mapX >= 0 && mapX < mapW && mapY >= 0 && mapY < mapH) {
+                    const idx = (mapY * mapW + mapX) * 4;
+                    const r = imgData[idx];
+                    const g = imgData[idx + 1];
+                    newHoverPid = r + g * 256;
+                }
+
+                if (newHoverPid !== hoveredPid) {
+                    hoveredPid = newHoverPid;
+                    render();
+
+                    const prov = provData[hoveredPid];
+                    if (prov && tooltip) {
+                        const ownerDisp = prov.owner ? `${prov.owner} ${prov.player ? '(' + prov.player + ')' : ''}` : 'Uncolonized / Neutral';
+                        const clickPrompt = prov.owner && ['SPA','FRA','HAB','MUG','BUR','MLC','RUS','BAH','QNG'].includes(prov.owner) 
+                            ? `<div style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1); color:#60a5fa; font-weight:700; font-size:11px;">🔍 Click to view ${prov.owner} slide-out stats</div>` 
+                            : '';
+
+                        const casualtiesBlock = (prov.cas && prov.cas > 0) ? `
+                            <div style="margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1);">
+                                <div class="tt-row"><span style="color:#f87171;">💀 Total Casualties:</span><span class="tt-val" style="color:#fca5a5; font-weight:700;">${prov.cas.toLocaleString()}</span></div>
+                                <div class="tt-row"><span>⚔️ Battles Fought:</span><span class="tt-val">${prov.bat || 1}</span></div>
+                                ${prov.top_b ? `<div class="tt-row"><span>💥 Bloodiest:</span><span class="tt-val" style="font-size:11px; max-width:130px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${prov.top_b}</span></div>` : ''}
+                            </div>
+                        ` : '';
+
+                        tooltip.innerHTML = `
+                            <h5>
+                                <span>${prov.name}</span>
+                                <span class="tag-badge" style="background: rgba(255,255,255,0.1); font-size:10px;">#${hoveredPid}</span>
+                            </h5>
+                            <div class="tt-row"><span>Owner:</span><span class="tt-val">${ownerDisp}</span></div>
+                            <div class="tt-row"><span>Development:</span><span class="tt-val">${prov.dev}</span></div>
+                            <div class="tt-row"><span>Terrain Type:</span><span class="tt-val">${prov.coastal ? '🌊 Coastal' : '🏔️ Inland'}</span></div>
+                            ${prov.tg ? `<div class="tt-row"><span>Trade Good:</span><span class="tt-val">${prov.tg.replace('_',' ')}</span></div>` : ''}
+                            ${prov.aut > 0 ? `<div class="tt-row"><span>Autonomy:</span><span class="tt-val">${prov.aut}%</span></div>` : ''}
+                            ${prov.tc ? `<div class="tt-row"><span>Status:</span><span class="tt-val" style="color:#60a5fa;">Trade Company</span></div>` : ''}
+                            ${casualtiesBlock}
+                            ${clickPrompt}
+                        `;
+                        tooltip.style.display = 'block';
+                    } else if (tooltip) {
+                        tooltip.style.display = 'none';
+                    }
+                }
+
+                if (tooltip && tooltip.style.display === 'block') {
+                    let x = mouseX + 16;
+                    let y = mouseY + 16;
+                    const tw = tooltip.offsetWidth || 240;
+                    const th = tooltip.offsetHeight || 180;
+                    if (x + tw > rect.width - 12) x = mouseX - tw - 16;
+                    if (y + th > rect.height - 12) y = mouseY - th - 16;
+                    tooltip.style.left = `${Math.max(10, x)}px`;
+                    tooltip.style.top = `${Math.max(10, y)}px`;
+                }
+            });
+
+            wrapper.addEventListener('mouseleave', () => {
+                hoveredPid = 0;
+                render();
+                if (tooltip) tooltip.style.display = 'none';
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+                wrapper.classList.remove('dragging');
+            });
+
+            // Smooth Wheel Zooming (Centering on Cursor)
+            wrapper.addEventListener('wheel', e => {
+                e.preventDefault();
+                const rect = wrapper.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                const zoomFactor = e.deltaY < 0 ? 1.2 : 0.833;
+                const newScale = Math.max(minScale, Math.min(maxScale, scale * zoomFactor));
+                if (newScale !== scale) {
+                    panX = mouseX - (mouseX - panX) * (newScale / scale);
+                    panY = mouseY - (mouseY - panY) * (newScale / scale);
+                    scale = newScale;
+                    clampPan();
+                    render();
+                }
+            }, { passive: false });
+
+            // Province Click -> Slide-Out Country Drawer
+            wrapper.addEventListener('click', e => {
+                if (dragDist > 6) return;
+                if (!imgData) return;
+                const rect = wrapper.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                const mapX = Math.floor((mouseX - panX) / scale);
+                const mapY = Math.floor((mouseY - panY) / scale);
+
+                if (mapX >= 0 && mapX < mapW && mapY >= 0 && mapY < mapH) {
+                    const idx = (mapY * mapW + mapX) * 4;
+                    const pid = imgData[idx] + imgData[idx + 1] * 256;
+                    const prov = provData[pid];
+                    if (prov && prov.owner) {
+                        openCountryDrawer(prov.owner);
+                    }
+                }
+            });
+
+            // Toolbar Button Listeners
+            document.querySelectorAll('.map-mode-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    setMapMode(this.getAttribute('data-mode'));
+                });
+            });
+
+            // Control Buttons
+            document.getElementById('map-zoom-in')?.addEventListener('click', () => {
+                const rect = wrapper.getBoundingClientRect();
+                const newScale = Math.min(maxScale, scale * 1.35);
+                panX = rect.width/2 - (rect.width/2 - panX) * (newScale / scale);
+                panY = rect.height/2 - (rect.height/2 - panY) * (newScale / scale);
+                scale = newScale;
+                clampPan();
+                render();
+            });
+
+            document.getElementById('map-zoom-out')?.addEventListener('click', () => {
+                const rect = wrapper.getBoundingClientRect();
+                const newScale = Math.max(minScale, scale / 1.35);
+                panX = rect.width/2 - (rect.width/2 - panX) * (newScale / scale);
+                panY = rect.height/2 - (rect.height/2 - panY) * (newScale / scale);
+                scale = newScale;
+                clampPan();
+                render();
+            });
+
+            document.getElementById('map-zoom-reset')?.addEventListener('click', () => {
+                fitMapToView();
+            });
+
+            document.getElementById('map-fullscreen')?.addEventListener('click', () => {
+                wrapper.classList.toggle('fullscreen');
+                setTimeout(() => {
+                    fitMapToView();
+                }, 50);
+            });
+
+            window.addEventListener('resize', () => {
+                clampPan();
+                fitMapToView();
+            });
+
+            // Initial view setup
+            fitMapToView();
+            setMapMode('players');
+        }
+    </script>
+</head>
+<body>
+<div class="container">
+
+    <header>
+        <h1>EU4 Tournament Matchup Report</h1>
+        <p class="subtitle">2-Team Tournament &bull; 4 Roles &bull; Role-based head-to-head scoring</p>
+    </header>
+
+    {% if not game_data_loaded %}
+    <div class="notice-box">
+        <span class="icon">⚠️</span>
+        <div><b>Game data not loaded</b> — modifier-based combat and economy stats are unavailable. Run with EU4 directory argument to enable full calculations.</div>
+    </div>
+    {% endif %}
+
+    <!-- ── Team Summary Cards ── -->
+    <div class="team-cards-row">
+        <div class="team-card team1">
+            <div class="team-header">
+                <div class="team-title">🛡️ {{ team1.name }}</div>
+                <div class="team-score-badge">{{ team1.score }}<span class="team-score-unit">PTS</span></div>
+            </div>
+            <div class="team-roster">
+                <div class="roster-pill"><span class="roster-role">Naval</span><span class="roster-tag">SPA</span></div>
+                <div class="roster-pill"><span class="roster-role">Quantity</span><span class="roster-tag">FRA</span></div>
+                <div class="roster-pill"><span class="roster-role">Quality</span><span class="roster-tag">HAB</span></div>
+                <div class="roster-pill"><span class="roster-role">Blob</span><span class="roster-tag">MUG</span></div>
+            </div>
+        </div>
+
+        <div class="vs-divider">VS</div>
+
+        <div class="team-card team2">
+            <div class="team-header">
+                <div class="team-title">⚔️ {{ team2.name }}</div>
+                <div class="team-score-badge">{{ team2.score }}<span class="team-score-unit">PTS</span></div>
+            </div>
+            <div class="team-roster">
+                <div class="roster-pill"><span class="roster-role">Naval</span><span class="roster-tag">MLC</span></div>
+                <div class="roster-pill"><span class="roster-role">Quantity</span><span class="roster-tag">RUS</span></div>
+                <div class="roster-pill"><span class="roster-role">Quality</span><span class="roster-tag">BAH</span></div>
+                <div class="roster-pill"><span class="roster-role">Blob</span><span class="roster-tag">QNG</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Interactive World Map ── -->
+    {% if map_data %}
+    <div class="map-section">
+        <div class="map-section-header">
+            <div class="map-title-wrap">
+                <h3>🌍 Interactive Tournament World Map</h3>
+                <div class="map-subtitle">Pure Vector SVG Map with infinite zoom sharpness &bull; Drag to pan &bull; Scroll to zoom &bull; Click nation to view stats</div>
+            </div>
+            <div class="map-mode-toolbar">
+                <button type="button" class="map-mode-btn active" data-mode="players">👑 Players</button>
+                <button type="button" class="map-mode-btn" data-mode="political">🌍 Political</button>
+                <button type="button" class="map-mode-btn" data-mode="teams">⚔️ Teams</button>
+                <button type="button" class="map-mode-btn" data-mode="naval">🌊 Coastal &amp; Naval</button>
+                <button type="button" class="map-mode-btn" data-mode="dev">🔥 Development</button>
+                <button type="button" class="map-mode-btn" data-mode="casualties">💀 Casualties</button>
+            </div>
+        </div>
+
+        <div class="map-viewport-wrapper" id="map-wrapper">
+            <canvas id="eu4-map-canvas"></canvas>
+            
+            <!-- Overlay UI Controls -->
+            <div class="map-controls">
+                <button type="button" class="map-ctrl-btn" id="map-zoom-in" title="Zoom In">+</button>
+                <button type="button" class="map-ctrl-btn" id="map-zoom-out" title="Zoom Out">&minus;</button>
+                <button type="button" class="map-ctrl-btn" id="map-zoom-reset" title="Reset View">⟲</button>
+                <button type="button" class="map-ctrl-btn" id="map-fullscreen" title="Toggle Fullscreen">⛶</button>
+            </div>
+
+            <!-- Live Hover Tooltip -->
+            <div id="map-tooltip" class="map-tooltip" style="display:none;"></div>
+
+            <!-- Legend Bar -->
+            <div class="map-legend" id="map-legend"></div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Role Head-to-Head Matchups ── -->
+    <div class="section-header">
+        <div class="section-heading">🎯 Role Head-to-Head Matchups</div>
+    </div>
+
+    <div class="matchups-grid">
+        {% for m in matchups %}
+        <div class="matchup-card">
+            <div class="matchup-header">
+                <div class="matchup-role-tag">
+                    <span class="role-badge">{{ m.role }}</span>
+                    <span>{{ m.t1_country.tag if m.t1_country else '---' }} vs {{ m.t2_country.tag if m.t2_country else '---' }}</span>
+                </div>
+                <div class="matchup-score-bar">
+                    <span class="score-t1">{{ m.t1_score }} pts</span>
+                    <span style="color:var(--text-dim)">-</span>
+                    <span class="score-t2">{{ m.t2_score }} pts</span>
+                </div>
+            </div>
+
+            <table class="matchup-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th style="text-align:right">{{ m.t1_country.tag if m.t1_country else 'T1' }}</th>
+                        <th style="text-align:right">{{ m.t2_country.tag if m.t2_country else 'T2' }}</th>
+                        <th style="text-align:center">Winner</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for metric in m.metrics %}
+                    <tr class="metric-row-clickable" onclick="toggleMetricDetails(this)" title="Click to expand modifier breakdown">
+                        <td>
+                            <div class="metric-cell">
+                                <span class="pts-chip">{{ metric.points }}p</span>
+                                <span>{{ metric.name }}</span>
+                                {% if metric.is_approx %}<span class="approx-tag">est.</span>{% endif %}
+                                <span class="expand-arrow">▼</span>
+                            </div>
+                        </td>
+                        <td style="text-align:right" class="val-t1 {{ 'winner-t1' if metric.winner == 1 else '' }}">
+                            {{ metric.val1_disp }}
+                        </td>
+                        <td style="text-align:right" class="val-t2 {{ 'winner-t2' if metric.winner == 2 else '' }}">
+                            {{ metric.val2_disp }}
+                        </td>
+                        <td style="text-align:center">
+                            {% if metric.winner == 1 %}
+                            <span class="winner-badge t1">{{ m.t1_country.tag }} (+{{ metric.points }}p)</span>
+                            {% elif metric.winner == 2 %}
+                            <span class="winner-badge t2">{{ m.t2_country.tag }} (+{{ metric.points }}p)</span>
+                            {% else %}
+                            <span class="winner-badge tie">Tie / None</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr class="metric-details-row" style="display:none;">
+                        <td colspan="4">
+                            <div class="metric-breakdown-container">
+                                <div class="metric-breakdown-col t1-col">
+                                    <div class="metric-breakdown-header">
+                                        <span class="country-tag-badge">{{ m.t1_country.tag if m.t1_country else 'T1' }}</span>
+                                        <span>{{ m.t1_country.player if m.t1_country else '' }} &mdash; Sources &amp; Modifiers</span>
+                                    </div>
+                                    <div class="breakdown-list">
+                                        {% for lbl, val in metric.breakdown1 %}
+                                        <div class="bk-item">
+                                            <span class="bk-lbl" title="{{ lbl }}">{{ lbl|replace('_', ' ')|title }}</span>
+                                            <span class="bk-val">{{ val }}</span>
+                                        </div>
+                                        {% else %}
+                                        <div class="bk-empty">No modifier sources recorded</div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                <div class="metric-breakdown-col t2-col">
+                                    <div class="metric-breakdown-header">
+                                        <span class="country-tag-badge team2">{{ m.t2_country.tag if m.t2_country else 'T2' }}</span>
+                                        <span>{{ m.t2_country.player if m.t2_country else '' }} &mdash; Sources &amp; Modifiers</span>
+                                    </div>
+                                    <div class="breakdown-list">
+                                        {% for lbl, val in metric.breakdown2 %}
+                                        <div class="bk-item">
+                                            <span class="bk-lbl" title="{{ lbl }}">{{ lbl|replace('_', ' ')|title }}</span>
+                                            <span class="bk-val">{{ val }}</span>
+                                        </div>
+                                        {% else %}
+                                        <div class="bk-empty">No modifier sources recorded</div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ── Country Overview Cards Grid ── -->
+    <div class="section-header">
+        <div class="section-heading">📊 Tournament Nations Overview</div>
+        <div style="font-size:12px; color:var(--text-muted);">Click any country card or map province to view full stats popup</div>
+    </div>
+
+    <div class="country-cards-grid">
+        {% for c in countries %}
+        <div class="country-overview-card {{ 'team1' if c.team == team1.name else 'team2' }}">
+            <div>
+                <div class="card-header-row">
+                    <div class="card-player-info">
+                        <span class="country-tag-badge {{ 'team2' if c.team == team2.name else '' }}">{{ c.tag }}</span>
+                        <span class="card-player-name">{{ c.player }}</span>
+                    </div>
+                    <div class="card-score-badge">{{ c.score if c.score is not none else 0 }} pts</div>
+                </div>
+                <div class="card-meta-row">
+                    <span class="team-pill {{ 'team1' if c.team == team1.name else 'team2' }}">{{ c.team }}</span>
+                    <span class="role-pill">{{ c.role }} Role</span>
+                    <span class="role-pill">{{ c.government_type|capitalize }}</span>
+                </div>
+                <div class="card-stats-grid">
+                    <div class="card-stat-item">
+                        <span class="card-stat-label">Tech (A/D/M)</span>
+                        <span class="card-stat-value" style="font-size:12px">{{ c.adm_tech }}/{{ c.dip_tech }}/{{ c.mil_tech }}</span>
+                    </div>
+                    <div class="card-stat-item">
+                        <span class="card-stat-label">Development</span>
+                        <span class="card-stat-value">{{ c.development|int }}</span>
+                    </div>
+                    <div class="card-stat-item">
+                        <span class="card-stat-label">Total Income</span>
+                        <span class="card-stat-value">{{ c.total_income|round(1) if c.total_income is not none else '---' }} ¤</span>
+                    </div>
+                    <div class="card-stat-item">
+                        <span class="card-stat-label">Land Morale</span>
+                        <span class="card-stat-value">{{ c.morale_armies|round(2) if c.morale_armies else '---' }}</span>
+                    </div>
+                    <div class="card-stat-item">
+                        <span class="card-stat-label">Discipline</span>
+                        <span class="card-stat-value">{{ (c.discipline * 100)|round(1) if c.discipline else '100' }}%</span>
+                    </div>
+                    <div class="card-stat-item">
+                        <span class="card-stat-label">Max Manpower</span>
+                        <span class="card-stat-value">{{ ((c.max_manpower * 1000)|int // 1000) ~ 'k' if c.max_manpower else '0k' }}</span>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="card-view-btn" onclick="openCountryDrawer('{{ c.tag }}')">
+                🔍 View Full Details &amp; Modifiers
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ── Country Details Slide-Out Drawer ── -->
+    <div id="countryDrawerOverlay" class="drawer-overlay" onclick="closeCountryDrawer(event)">
+        <div class="drawer-sidebar" onclick="event.stopPropagation()">
+            {% for c in countries %}
+            <div id="drawer-country-{{ c.tag }}" class="drawer-country-content" style="display:none;">
+                <div class="drawer-header">
+                    <div class="drawer-title-left">
+                        <span class="country-tag-badge {{ 'team2' if c.team == team2.name else '' }}">{{ c.tag }}</span>
+                        <div>
+                            <div class="drawer-player-title">{{ c.player }}</div>
+                            <div style="display:flex; gap:6px; align-items:center; margin-top:4px;">
+                                <span class="team-pill {{ 'team1' if c.team == team1.name else 'team2' }}">{{ c.team }}</span>
+                                <span class="role-pill">{{ c.role }} Role</span>
+                                <span class="role-pill">{{ c.government_type|capitalize }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span class="card-score-badge">{{ c.score if c.score is not none else 0 }} pts</span>
+                        <button type="button" class="drawer-close-btn" onclick="closeCountryDrawer()" title="Close">&times;</button>
+                    </div>
+                </div>
+
+                <div class="drawer-tab-nav">
+                    <button type="button" class="drawer-tab-btn active" data-tab="military-{{ c.tag }}" onclick="switchDrawerTab(this, '{{ c.tag }}', 'military')">⚔️ Military &amp; Fleet</button>
+                    <button type="button" class="drawer-tab-btn" data-tab="economy-{{ c.tag }}" onclick="switchDrawerTab(this, '{{ c.tag }}', 'economy')">💰 Economy &amp; Realm</button>
+                    <button type="button" class="drawer-tab-btn" data-tab="diplomacy-{{ c.tag }}" onclick="switchDrawerTab(this, '{{ c.tag }}', 'diplomacy')">👑 Diplomacy &amp; Rulers</button>
+                    <button type="button" class="drawer-tab-btn" data-tab="ideas-{{ c.tag }}" onclick="switchDrawerTab(this, '{{ c.tag }}', 'ideas')">📜 Ideas &amp; Policies</button>
+                </div>
+
+                <div class="drawer-body">
+                    <!-- Pane 1: Military & Fleet -->
+                    <div class="drawer-tab-pane active" data-pane="military-{{ c.tag }}">
+                        <div class="panel-section-title">⚔️ Land Forces &amp; Combat Modifiers</div>
+                        <div class="stat-grid">
+                            <div class="stat-box">
+                                <h4>Discipline</h4>
+                                {% if c.discipline is not none %}
+                                <div class="stat-val">{{ (c.discipline * 100)|round(2) }}%</div>
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.discipline_breakdown %}
+                                    <span>{{ lbl }}: +{{ (dv * 100)|round(2) }}%</span>
+                                    {% endfor %}
+                                </div>
+                                {% else %}<div class="na">N/A</div>{% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Land Morale</h4>
+                                {% if c.morale_armies is not none %}
+                                <div class="stat-val">{{ c.morale_armies|round(3) }}</div>
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.morale_armies_breakdown %}
+                                    {% if loop.index0 == 0 %}
+                                    <span>{{ lbl }}: {{ dv|round(2) }}</span>
+                                    {% else %}
+                                    <span>{{ lbl }}: {{ '+' if dv > 0 else '' }}{{ (dv * 100)|round(1) }}%</span>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% else %}<div class="na">N/A</div>{% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Infantry Combat Ability</h4>
+                                {% if c.infantry_ca is not none %}<div class="stat-val">+{{ (c.infantry_ca * 100)|round(1) }}%</div>{% else %}<div class="na">N/A</div>{% endif %}
+                                {% if c.infantry_ca_breakdown %}
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.infantry_ca_breakdown %}
+                                    <span>{{ lbl }}: +{{ (dv * 100)|round(1) }}%</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Cavalry Combat Ability</h4>
+                                {% if c.cavalry_ca is not none %}<div class="stat-val">+{{ (c.cavalry_ca * 100)|round(1) }}%</div>{% else %}<div class="na">N/A</div>{% endif %}
+                                {% if c.cavalry_ca_breakdown %}
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.cavalry_ca_breakdown %}
+                                    <span>{{ lbl }}: +{{ (dv * 100)|round(1) }}%</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Artillery Combat Ability</h4>
+                                {% if c.artillery_ca is not none %}<div class="stat-val">+{{ (c.artillery_ca * 100)|round(1) }}%</div>{% else %}<div class="na">N/A</div>{% endif %}
+                                {% if c.artillery_ca_breakdown %}
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.artillery_ca_breakdown %}
+                                    <span>{{ lbl }}: +{{ (dv * 100)|round(1) }}%</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Siege Ability</h4>
+                                {% if c.siege_ability is not none %}<div class="stat-val">+{{ (c.siege_ability * 100)|round(1) }}%</div>{% else %}<div class="na">N/A</div>{% endif %}
+                                {% if c.siege_ability_breakdown %}
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.siege_ability_breakdown %}
+                                    <span>{{ lbl }}: +{{ (dv * 100)|round(1) }}%</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Fire &amp; Shock Damage</h4>
+                                <div class="stat-val" style="font-size:15px">+{{ ((c.fire_damage or 0) * 100)|round(1) }}% Fire &bull; +{{ ((c.shock_damage or 0) * 100)|round(1) }}% Shock</div>
+                                <div class="breakdown">
+                                    <span>Army Prof Fire: +{{ (c.army_professionalism * 10)|round(1) }}%</span>
+                                    <span>Army Prof Shock: +{{ (c.army_professionalism * 10)|round(1) }}%</span>
+                                </div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Army Force Limit</h4>
+                                <div class="stat-val">{{ c.army_force_limit|round(1) }}</div>
+                                {% if c.army_force_limit_breakdown %}
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.army_force_limit_breakdown %}
+                                    {% if 'mod%' in lbl or 'tradition' in lbl %}
+                                    <span>{{ lbl }}: +{{ (dv * 100)|round(1) }}%</span>
+                                    {% else %}
+                                    <span>{{ lbl }}: {{ '+' if dv > 0 and loop.index0 > 0 else '' }}{{ dv|round(1) }}</span>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Max Manpower</h4>
+                                <div class="stat-val">{{ (c.max_manpower * 1000)|int }}</div>
+                                {% if c.manpower_recovery %}
+                                <div class="breakdown"><span>Recovery: +{{ (c.manpower_recovery * 100)|round(1) }}%</span></div>
+                                {% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Army Tradition &amp; Professionalism</h4>
+                                <div class="stat-val" style="font-size:16px">{{ c.army_tradition|round(1) }} AT &bull; {{ (c.army_professionalism * 100)|round(1) }}% Prof</div>
+                                <div class="breakdown">
+                                    <span>AT Morale: +{{ (c.army_tradition * 0.25)|round(1) }}%</span>
+                                    <span>Prof Siege: +{{ (c.army_professionalism * 20)|round(1) }}%</span>
+                                    <span>Prof Dmg: +{{ (c.army_professionalism * 10)|round(1) }}%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="panel-section-title" style="margin-top:16px">⚓ Naval Forces &amp; Fleet Modifiers</div>
+                        <div class="stat-grid">
+                            <div class="stat-box">
+                                <h4>Naval Force Limit</h4>
+                                <div class="stat-val">{{ c.naval_force_limit|round(1) }}</div>
+                                {% if c.naval_force_limit_breakdown %}
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.naval_force_limit_breakdown %}
+                                    {% if 'mod%' in lbl or 'tradition' in lbl or 'large_colonial' in lbl %}
+                                    <span>{{ lbl }}: +{{ (dv * 100)|round(1) }}%</span>
+                                    {% else %}
+                                    <span>{{ lbl }}: {{ '+' if dv > 0 and loop.index0 > 0 else '' }}{{ dv|round(1) }}</span>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Naval Morale</h4>
+                                {% if c.naval_morale is not none %}
+                                <div class="stat-val">{{ c.naval_morale|round(3) }}</div>
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.naval_morale_breakdown %}
+                                    {% if loop.index0 == 0 %}
+                                    <span>{{ lbl }}: {{ dv|round(2) }}</span>
+                                    {% else %}
+                                    <span>{{ lbl }}: {{ '+' if dv > 0 else '' }}{{ (dv * 100)|round(1) }}%</span>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% else %}<div class="na">N/A</div>{% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Heavy Ships &amp; Heavy CA</h4>
+                                <div class="stat-val" style="font-size:16px">{{ c.heavy_ships }} heavy {% if c.heavy_ship_ca %}(+{{ (c.heavy_ship_ca * 100)|round(1) }}% CA){% endif %}</div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Trade Ships (Light)</h4>
+                                <div class="stat-val">{{ c.trade_ships }}</div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Galley Ships &amp; Galley CA</h4>
+                                <div class="stat-val" style="font-size:16px">{{ c.galley_ships }} galleys {% if c.galley_ca %}(+{{ (c.galley_ca * 100)|round(1) }}% CA){% endif %}</div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Transports &amp; Total Fleet</h4>
+                                <div class="stat-val" style="font-size:16px">{{ c.transport_ships }} transports &bull; {{ c.total_ships }} total</div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Navy Tradition</h4>
+                                <div class="stat-val">{{ c.navy_tradition|round(1) }} NT</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pane 2: Economy & Realm -->
+                    <div class="drawer-tab-pane" data-pane="economy-{{ c.tag }}">
+                        <div class="panel-section-title">💰 Economic Multipliers &amp; Capacity</div>
+                        <div class="stat-grid">
+                            <div class="stat-box">
+                                <h4>Gov Capacity (Available)</h4>
+                                {% if c.governing_capacity is not none %}
+                                <div class="stat-val">{{ c.governing_capacity|round(0)|int }}</div>
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.governing_capacity_breakdown %}
+                                    {% if 'mod%' in lbl or '(%)' in lbl %}
+                                    <span>{{ lbl }}: +{{ (dv * 100)|round(1) }}%</span>
+                                    {% else %}
+                                    <span>{{ lbl }}: {{ '+' if dv > 0 and loop.index0 > 0 else '' }}{{ dv|round(0)|int }}</span>
+                                    {% endif %}
+                                    {% endfor %}
+                                    <span style="opacity:0.7">used: {{ c.used_governing_capacity|round(1) }}</span>
+                                </div>
+                                {% else %}<div class="na">N/A</div>{% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Goods Produced Modifier</h4>
+                                {% if c.goods_produced is not none %}
+                                <div class="stat-val">+{{ (c.goods_produced * 100)|round(1) }}%</div>
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.goods_produced_breakdown %}
+                                    <span>{{ lbl }}: +{{ (dv * 100)|round(1) }}%</span>
+                                    {% endfor %}
+                                </div>
+                                {% else %}<div class="na">N/A</div>{% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Production Efficiency</h4>
+                                {% if c.production_efficiency is not none %}
+                                <div class="stat-val">+{{ (c.production_efficiency * 100)|round(1) }}%</div>
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.production_efficiency_breakdown %}
+                                    <span>{{ lbl }}: +{{ (dv * 100)|round(1) }}%</span>
+                                    {% endfor %}
+                                </div>
+                                {% else %}<div class="na">N/A</div>{% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Trade Efficiency</h4>
+                                {% if c.trade_efficiency is not none %}
+                                <div class="stat-val">+{{ (c.trade_efficiency * 100)|round(1) }}%</div>
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.trade_efficiency_breakdown %}
+                                    <span>{{ lbl }}: +{{ (dv * 100)|round(1) }}%</span>
+                                    {% endfor %}
+                                </div>
+                                {% else %}<div class="na">N/A</div>{% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>National Tax Modifier</h4>
+                                {% if c.tax_efficiency is not none %}<div class="stat-val">+{{ (c.tax_efficiency * 100)|round(1) }}%</div>{% else %}<div class="na">N/A</div>{% endif %}
+                                {% if c.tax_efficiency_breakdown %}
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.tax_efficiency_breakdown %}
+                                    <span>{{ lbl }}: +{{ (dv * 100)|round(1) }}%</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Development Cost</h4>
+                                {% if c.dev_cost is not none %}<div class="stat-val">{{ (c.dev_cost * 100)|round(1) }}%</div>{% else %}<div class="na">N/A</div>{% endif %}
+                                {% if c.dev_cost_breakdown %}
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.dev_cost_breakdown %}
+                                    <span>{{ lbl }}: {{ '+' if dv > 0 else '' }}{{ (dv * 100)|round(1) }}%</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Core Creation Cost (CCR)</h4>
+                                {% if c.core_creation_cost is not none %}<div class="stat-val">{{ (c.core_creation_cost * 100)|round(1) }}%</div>{% else %}<div class="na">0.0%</div>{% endif %}
+                                {% if c.core_creation_cost_breakdown %}
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.core_creation_cost_breakdown %}
+                                    <span>{{ lbl }}: {{ '+' if dv > 0 else '' }}{{ (dv * 100)|round(1) }}%</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>All Power Costs (APC)</h4>
+                                {% if c.all_power_cost is not none %}<div class="stat-val">{{ (c.all_power_cost * 100)|round(1) }}%</div>{% else %}<div class="na">0.0%</div>{% endif %}
+                                {% if c.all_power_cost_breakdown %}
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.all_power_cost_breakdown %}
+                                    <span>{{ lbl }}: {{ '+' if dv > 0 else '' }}{{ (dv * 100)|round(1) }}%</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Mercantilism</h4>
+                                <div class="stat-val">{{ c.mercantilism|round(1) }}%</div>
+                                <div class="breakdown">
+                                    <span>Prov Trade Power: +{{ (c.mercantilism * 2.0)|round(1) }}%</span>
+                                    <span>Trade Steering: +{{ (c.mercantilism * 0.25)|round(1) }}%</span>
+                                    <span>Trade Efficiency: +{{ (c.mercantilism * 0.10)|round(1) }}%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if c.estates %}
+                        <div class="panel-section-title" style="margin-top:16px">🏰 Estates &amp; Loyalty Status</div>
+                        <div class="stat-grid">
+                            {% for est in c.estates %}
+                            <div class="stat-box">
+                                <h4>{{ est.name }}</h4>
+                                <div class="stat-val" style="font-size:15px; color:{{ '#4ade80' if est.loyalty >= 60.0 else ('#f87171' if est.loyalty < 30.0 else 'var(--text-main)') }}">
+                                    {{ est.loyalty|round(1) }}% Loyalty
+                                </div>
+                                <div class="breakdown">
+                                    <span>Land Share: {{ est.territory|round(1) }}%</span>
+                                    <span>Status: {{ '👑 Loyal (+Buffs)' if est.loyalty >= 60.0 else ('⚠️ Disloyal' if est.loyalty < 30.0 else 'Neutral') }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div class="panel-section-title" style="margin-top:16px">🏛️ Territory &amp; Colonial Expansion</div>
+                        <div class="stat-grid">
+                            <div class="stat-box">
+                                <h4>Owned Provinces</h4>
+                                <div class="stat-val">{{ c.province_count }}</div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Controlled Development</h4>
+                                <div class="stat-val">{{ c.development|int }}</div>
+                                <div class="breakdown"><span>Started: {{ c.starting_development|int }}</span></div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Development Clicks</h4>
+                                <div class="stat-val">{{ c.dev_clicks }}</div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Colonial Nations Count</h4>
+                                <div class="stat-val">{{ c.colonial_nations_count }}</div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Controlled Colonial Regions</h4>
+                                <div class="stat-val">{{ c.colonial_regions_controlled }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pane 3: Diplomacy & Rulers -->
+                    <div class="drawer-tab-pane" data-pane="diplomacy-{{ c.tag }}">
+                        <div class="panel-section-title">👑 Diplomatic Capacity &amp; Relations</div>
+                        <div class="stat-grid">
+                            <div class="stat-box">
+                                <h4>Diplomatic Reputation</h4>
+                                {% if c.diplo_reputation is not none %}<div class="stat-val">+{{ c.diplo_reputation|round(1) }}</div>{% else %}<div class="na">N/A</div>{% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Diplomatic Capacity (Slots)</h4>
+                                <div class="stat-val">{{ c.diplo_capacity }}</div>
+                                {% if c.diplo_slots_bonus_breakdown %}
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.diplo_slots_bonus_breakdown %}
+                                    <span>{{ lbl }}: {{ '+' if dv > 0 else '' }}{{ dv|int }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Aggressive Expansion Impact</h4>
+                                {% if c.ae_impact is not none %}<div class="stat-val">{{ (c.ae_impact * 100)|round(1) }}%</div>{% else %}<div class="na">0.0%</div>{% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Improve Relations</h4>
+                                {% if c.improve_relations is not none %}<div class="stat-val">+{{ (c.improve_relations * 100)|round(1) }}%</div>{% else %}<div class="na">0.0%</div>{% endif %}
+                            </div>
+                            <div class="stat-box">
+                                <h4>Personal Unions Count</h4>
+                                <div class="stat-val">{{ c.personal_unions_count }}</div>
+                            </div>
+                        </div>
+
+                        <div class="panel-section-title" style="margin-top:16px">📜 Realm Profile &amp; Technology</div>
+                        <div class="stat-grid">
+                            <div class="stat-box">
+                                <h4>Government &amp; Religion</h4>
+                                <div class="stat-val" style="font-size:16px">{{ c.government_type|capitalize }} &bull; {{ c.religion|capitalize }}</div>
+                                <div class="breakdown">
+                                    {% if c.is_defender_of_faith %}<span>Defender of the Faith</span>{% endif %}
+                                    {% if c.piety != 0 %}<span>{{ 'Legalism' if c.piety > 0 else 'Mysticism' }}: {{ (c.piety * 100)|abs|round(1) }}%</span>{% endif %}
+                                    {% if c.patriarch_authority > 0 %}<span>Patriarch Authority: {{ (c.patriarch_authority * 100)|round(1) }}%</span>{% endif %}
+                                    {% if c.harmony > 0 %}<span>Harmony: {{ c.harmony|round(1) }}</span>{% endif %}
+                                    {% if c.meritocracy > 0 %}<span>Meritocracy: {{ c.meritocracy|round(1) }}</span>{% endif %}
+                                    {% if c.militarization > 0 %}<span>Militarization: {{ c.militarization|round(1) }}</span>{% endif %}
+                                </div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Technology Levels</h4>
+                                <div class="stat-val" style="font-size:16px">ADM {{ c.adm_tech }} &bull; DIP {{ c.dip_tech }} &bull; MIL {{ c.mil_tech }}</div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Absolutism</h4>
+                                <div class="stat-val" style="font-size:16px">{{ c.absolutism|round(1) }} {% if c.max_absolutism %}(Max +{{ c.max_absolutism|round(0)|int }}){% endif %}</div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Prestige &amp; Stability</h4>
+                                <div class="stat-val" style="font-size:16px">{{ c.prestige|round(1) }} Pres &bull; +{{ c.stability|int }} Stab</div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Power Projection</h4>
+                                <div class="stat-val" style="font-size:16px">{{ c.power_projection|round(1) }} PP</div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Innovativeness &amp; Mercantilism</h4>
+                                <div class="stat-val" style="font-size:16px">{{ c.innovativeness|round(1) }}% Inno &bull; {{ c.mercantilism|round(0)|int }}% Merc</div>
+                            </div>
+                            {% if c.war_exhaustion > 0 %}
+                            <div class="stat-box">
+                                <h4>War Exhaustion</h4>
+                                <div class="stat-val" style="font-size:16px; color:#f87171">{{ c.war_exhaustion|round(2) }} WE</div>
+                            </div>
+                            {% endif %}
+                            <div class="stat-box">
+                                <h4>Hegemon Status</h4>
+                                <div class="stat-val" style="font-size:16px">{{ c.hegemony|capitalize if c.hegemony else 'None' }}</div>
+                            </div>
+                            {% if c.monarch_personalities %}
+                            <div class="stat-box">
+                                <h4>Ruler Personalities</h4>
+                                <div class="stat-val" style="font-size:14px">{{ c.monarch_personalities|join(', ') }}</div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Pane 4: Ideas, Policies & Privileges -->
+                    <div class="drawer-tab-pane" data-pane="ideas-{{ c.tag }}">
+                        <div class="panel-section-title">💡 Active Idea Groups</div>
+                        <div class="tag-list" style="margin-bottom:16px">
+                            {% for gname, levels in c.active_idea_groups.items() %}
+                            <div class="tag-item">
+                                <span>{{ gname }}</span>
+                                <span class="tag-badge {{ 'completed' if levels >= 7 else '' }}">{{ levels }}/7 {{ '[Completed]' if levels >= 7 else '' }}</span>
+                            </div>
+                            {% else %}
+                            <div class="na">No idea groups unlocked</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="panel-section-title">📜 Active Policies</div>
+                        <div class="tag-list" style="margin-bottom:16px">
+                            {% for pol in c.active_policies %}
+                            <div class="tag-item"><span>{{ pol }}</span></div>
+                            {% else %}
+                            <div class="na">No active policies</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="panel-section-title">🏛️ Active Estate Privileges</div>
+                        <div class="tag-list" style="margin-bottom:16px">
+                            {% for priv in c.estate_privileges %}
+                            <div class="tag-item"><span>{{ priv[0] if priv is sequence and priv is not string else priv }}</span></div>
+                            {% else %}
+                            <div class="na">No granted estate privileges</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="panel-section-title">🧑‍💼 Employed Advisors</div>
+                        <div class="tag-list">
+                            {% for adv in c.advisors %}
+                            <div class="advisor-card">
+                                <span>{{ adv.name|replace('_', ' ')|title }}</span>
+                                <span class="advisor-skill">Level {{ adv.skill }}</span>
+                            </div>
+                            {% else %}
+                            <div class="na">No active advisors</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="footer-card">
+        <div>Most Developed Province: <b>{{ most_dev_province.name }}</b> ({{ most_dev_province.owner }}) &mdash; {{ most_dev_province.development|int }} dev</div>
+        <div>Tournament Report Generator</div>
+    </div>
+
+</div>
+</body>
+</html>
