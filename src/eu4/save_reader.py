@@ -177,9 +177,14 @@ class CountryData:
     subject_nfl: float = 0.0
     large_cn_count: int = 0
     is_subject: bool = False
+    naval_doctrine: str = ""
+    is_curia_controller: bool = False
+    is_hre_emperor: bool = False
 
     # ── victory card (kept for potential reference) ──────────────────────────
     victory_card_score: float = 0.0
+    average_army_drill: float = 0.0
+    accepted_cultures: list[str] = field(default_factory=list)
 
     # ── compiled modifiers & provenance breakdowns (from ModifierEngine) ───────
     compiled_modifiers: dict[str, float] = field(default_factory=dict)
@@ -231,17 +236,25 @@ def _extract_ideas(node: ClausewitzNode) -> dict[str, int]:
     return result
 
 
-def _extract_advisors(node: ClausewitzNode, job_types: dict[int, str] | None = None) -> list[AdvisorEntry]:
+def _extract_advisors(node: ClausewitzNode, job_types: dict[int, Any] | None = None) -> list[AdvisorEntry]:
     entries: list[AdvisorEntry] = []
     for adv_node in node.get_list("advisor"):
         if not isinstance(adv_node, ClausewitzNode):
             continue
         id_node = adv_node.get_node("id")
         entity_id = id_node.get_int("id") if id_node else adv_node.get_int("id")
-        # Resolve job type: history gives the string name; convert to int index via advisortypes order
-        job_name = (job_types or {}).get(entity_id, "")
+        info = (job_types or {}).get(entity_id)
+        if isinstance(info, tuple):
+            job_name = info[0] or ""
+            skill = info[1] if len(info) > 1 and info[1] > 0 else adv_node.get_int("skill", 1)
+        elif isinstance(info, str):
+            job_name = info
+            skill = adv_node.get_int("skill", 1)
+        else:
+            job_name = ""
+            skill = adv_node.get_int("skill", 1)
+
         type_int = adv_node.get_int("type")  # fallback: the entity type int (51)
-        skill = adv_node.get_int("skill", 1)
         entries.append(AdvisorEntry(id=entity_id, type_int=type_int, job_type_name=job_name, skill=skill))
     return entries
 
@@ -359,9 +372,9 @@ def _extract_active_policies(country_node: ClausewitzNode) -> list[str]:
 
 def _extract_advisor_job_types_from_provinces(
     root: ClausewitzNode, advisor_ids: set[int]
-) -> dict[int, str]:
-    """Scan province histories to map advisor entity_id -> job_type_name string."""
-    result: dict[int, str] = {}
+) -> dict[int, tuple[str, int, str]]:
+    """Scan province histories to map advisor entity_id -> (job_type_name, skill, name)."""
+    result: dict[int, tuple[str, int, str]] = {}
     provinces = root.get_node("provinces")
     if not provinces:
         return result
@@ -381,8 +394,10 @@ def _extract_advisor_job_types_from_provinces(
                     id_node = adv_node.get_node("id")
                     entity_id = id_node.get_int("id") if id_node else adv_node.get_int("id")
                     job_type = adv_node.get_str("type")
-                    if entity_id in advisor_ids and job_type:
-                        result[entity_id] = job_type
+                    skill = adv_node.get_int("skill", 1)
+                    name = adv_node.get_str("name")
+                    if entity_id in advisor_ids and (job_type or skill):
+                        result[entity_id] = (job_type, skill, name)
     return result
 
 
@@ -558,6 +573,18 @@ def _extract_estates(country_node: ClausewitzNode) -> list[tuple[str, float, flo
     return result
 
 
+def _extract_army_drill(country_node: ClausewitzNode) -> float:
+    total_drill = 0.0
+    reg_count = 0
+    for army_node in country_node.get_list("army"):
+        if isinstance(army_node, ClausewitzNode):
+            for reg_node in army_node.get_list("regiment"):
+                if isinstance(reg_node, ClausewitzNode):
+                    total_drill += reg_node.get_float("drill")
+                    reg_count += 1
+    return total_drill / reg_count if reg_count > 0 else 0.0
+
+
 def _extract_countries(
     root: ClausewitzNode,
     tag_to_player: dict[str, str],
@@ -584,6 +611,8 @@ def _extract_countries(
         colonial_count, pu_count, colonial_tags = _extract_subjects(country_node, tag, countries_node)
         raw_dev = country_node.get_float("raw_development")
         starting_dev = _extract_starting_development(country_node)
+        accepted_cultures_list = [x for x in country_node.get_list("accepted_culture") if isinstance(x, str)]
+        avg_drill = _extract_army_drill(country_node)
 
         cd = CountryData(
             tag=tag,
@@ -612,6 +641,7 @@ def _extract_countries(
                 if country_node.get_node("technology") else 3
             ),
             army_professionalism=country_node.get_float("army_professionalism"),
+            average_army_drill=avg_drill,
             prestige=country_node.get_float("prestige"),
             power_projection=country_node.get_float("current_power_projection") or country_node.get_float("power_projection"),
             stability=country_node.get_float("stability"),
@@ -621,7 +651,8 @@ def _extract_countries(
                 or tag in (dof_tags or set())
             ),
             save_year=save_year,
-            accepted_culture_count=len(country_node.get_list("accepted_culture")),
+            accepted_culture_count=len(set(accepted_cultures_list)),
+            accepted_cultures=accepted_cultures_list,
             innovativeness=country_node.get_float("innovativeness"),
             overextension=country_node.get_float("overextension_percentage") or country_node.get_float("overextension"),
             war_exhaustion=country_node.get_float("war_exhaustion"),
@@ -725,19 +756,22 @@ def _scan_provinces(
         owner = prov_node.get_str("owner")
         if not owner:
             continue
-        # Track all tags
-        tag_count[owner] = tag_count.get(owner, 0) + 1
-        province_owner_map[str(pid)] = owner
-        tag_base_manpower[owner] = tag_base_manpower.get(owner, 0.0) + prov_node.get_float("base_manpower")
-        if owner not in tag_province_sets:
-            tag_province_sets[owner] = set()
-        
         int_pid = 0
         try:
             int_pid = abs(int(pid))
-            tag_province_sets[owner].add(int_pid)
         except (ValueError, TypeError):
             pass
+
+        # Track all tags
+        tag_count[owner] = tag_count.get(owner, 0) + 1
+        province_owner_map[str(pid)] = owner
+        if owner not in tag_province_sets:
+            tag_province_sets[owner] = set()
+        if int_pid:
+            province_owner_map[str(int_pid)] = owner
+            province_owner_map[f"-{int_pid}"] = owner
+            tag_province_sets[owner].add(int_pid)
+        tag_base_manpower[owner] = tag_base_manpower.get(owner, 0.0) + prov_node.get_float("base_manpower")
 
         # Collect province modifiers
         prov_name = prov_node.get_str("name") or str(pid)
@@ -764,39 +798,44 @@ def _scan_provinces(
         b_keys = list(buildings_node.keys()) if buildings_node else []
         tc = prov_node.get_str("active_trade_company")
 
-        # Check territorial core vs full core / trade company (90% minimum autonomy floor in EU4)
+        # Check territorial core vs full core / trade company (75% minimum autonomy floor in EU4)
         is_territory = bool(tc or prov_node.get_str("territorial_core") or (owner and owner in prov_node.get_list("territorial_core")))
-        eff_autonomy = max(autonomy, 90.0) if is_territory else autonomy
+        eff_autonomy = max(autonomy, 75.0) if is_territory else autonomy
         aut_factor = max(0.0, 1.0 - (eff_autonomy / 100.0))
 
         # Land Force Limit contribution
-        lfl = dev * 0.1
+        lfl = dev * 0.1 * aut_factor
         if tg == "grain":
-            lfl += 0.5
+            lfl += 0.5 * aut_factor
         if "regimental_camp" in b_keys:
             lfl += 1.0
         if "conscription_center" in b_keys:
             lfl += 2.0
+        if "externalministry" in b_keys:
+            lfl += 4.0
         if "native_fortified_house" in b_keys:
             lfl += 5.0
-        tag_province_lfl[owner] = tag_province_lfl.get(owner, 0.0) + lfl * aut_factor
+        tag_province_lfl[owner] = tag_province_lfl.get(owner, 0.0) + lfl
 
         # Naval Force Limit contribution (coastal provinces only)
-        # In EU4: dev * 0.1, naval_supplies +0.5, shipyard +2.0, grand_shipyard +4.0
         is_coastal = (int_pid in coastal_provinces) if coastal_provinces else (
             "shipyard" in b_keys or "grand_shipyard" in b_keys or "dock" in b_keys or "drydock" in b_keys or prov_node.get_str("port")
         )
         nfl = 0.0
         if is_coastal:
-            nfl += dev * 0.1
+            nfl += dev * 0.1 * aut_factor
             if tg == "naval_supplies":
-                nfl += 0.5
+                nfl += 0.5 * aut_factor
             if "shipyard" in b_keys:
                 nfl += 2.0
             if "grand_shipyard" in b_keys:
                 nfl += 4.0
+            if "navalministry" in b_keys:
+                nfl += 7.0
 
-        tag_province_nfl[owner] = tag_province_nfl.get(owner, 0.0) + nfl * aut_factor
+        tag_province_nfl[owner] = tag_province_nfl.get(owner, 0.0) + nfl
+
+        deva = prov_node.get_float("devastation") or 0.0
 
         prov_info_map[int_pid] = {
             "name": prov_name,
@@ -806,6 +845,7 @@ def _scan_provinces(
             "aut": round(autonomy, 1),
             "tc": bool(tc),
             "has_shipyard": "shipyard" in b_keys or "grand_shipyard" in b_keys,
+            "devastation": round(deva, 1),
         }
 
         # Best dev province (player-owned only)
@@ -844,8 +884,9 @@ def _extract_raw_monuments(
     (monument_name, tier_int, province_id_str_or_None) for every entry.
     """
     result: list[tuple[str, int, str | None]] = []
-    
-    # Extract tiers for each monument from top-level great_projects node
+    seen: set[tuple[str, str | None]] = set()
+
+    # Extract tiers and province locations from top-level great_projects node
     monument_tiers: dict[str, int] = {}
     gp = root.get_node("great_projects")
     if gp:
@@ -853,6 +894,10 @@ def _extract_raw_monuments(
             if isinstance(node, ClausewitzNode):
                 tier = node.get_int("tier", node.get_int("development_tier", 1))
                 monument_tiers[name] = tier
+                prov = node.get_str("province")
+                if prov and (name, prov) not in seen:
+                    result.append((name, tier, prov))
+                    seen.add((name, prov))
 
     # Extract monument locations from provinces
     provinces_node = root.get_node("provinces")
@@ -864,17 +909,23 @@ def _extract_raw_monuments(
                 int_pid = abs(int(pid_str))
             except (ValueError, TypeError):
                 continue
-            
+
             gp_list = pdata.get_list("great_projects") or []
             for g in gp_list:
+                mname = ""
                 if isinstance(g, ClausewitzNode):
-                    for mname in g.array:
-                        name_str = str(mname)
-                        tier = monument_tiers.get(name_str, 1)
-                        result.append((name_str, tier, str(int_pid)))
+                    for sub_m in g.array:
+                        mname = str(sub_m)
+                        tier = monument_tiers.get(mname, 1)
+                        if (mname, str(int_pid)) not in seen:
+                            result.append((mname, tier, str(int_pid)))
+                            seen.add((mname, str(int_pid)))
                 elif isinstance(g, str):
-                    tier = monument_tiers.get(g, 1)
-                    result.append((g, tier, str(int_pid)))
+                    mname = g
+                    tier = monument_tiers.get(mname, 1)
+                    if (mname, str(int_pid)) not in seen:
+                        result.append((mname, tier, str(int_pid)))
+                        seen.add((mname, str(int_pid)))
 
     return result
 
@@ -957,6 +1008,63 @@ def _extract_casualties_from_text(gamestate_text: str) -> dict[int, dict[str, An
     return prov_battles
 
 
+def _load_prov_to_area() -> dict[int, str]:
+    """Load province-to-area mapping from area.txt."""
+    area_paths = [
+        os.path.join("eu4_data", "map", "area.txt"),
+        os.path.join("eu4_data", "mod", "3783710427", "map", "area.txt"),
+        r"C:\Program Files (x86)\Steam\steamapps\common\Europa Universalis IV\map\area.txt",
+    ]
+    prov_to_area: dict[int, str] = {}
+    for path in area_paths:
+        if os.path.isfile(path):
+            try:
+                with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                    txt = f.read()
+                for m in re.finditer(r'([a-zA-Z0-9_]+)\s*=\s*\{([^}]*)\}', txt):
+                    aname = m.group(1)
+                    clean_body = re.sub(r'#.*', '', m.group(2))
+                    for tok in clean_body.split():
+                        if tok.isdigit():
+                            prov_to_area[int(tok)] = aname
+                if prov_to_area:
+                    break
+            except Exception:
+                pass
+    return prov_to_area
+
+
+def _extract_area_prosperity(gamestate_text: str) -> dict[tuple[str, str], float]:
+    """Extract prosperity per (area_name, country_tag) from map_area_data in gamestate."""
+    p_start = gamestate_text.find("map_area_data{")
+    if p_start == -1:
+        return {}
+    depth = 0
+    sub = gamestate_text[p_start + len("map_area_data"):]
+    area_text = ""
+    for idx, c in enumerate(sub):
+        if c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                area_text = sub[:idx + 1]
+                break
+
+    pros_map: dict[tuple[str, str], float] = {}
+    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*=\s*\{([^{}]*(?:\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}[^{}]*)*)\}', area_text):
+        aname = m.group(1)
+        body = m.group(2)
+        p_m = re.search(r'prosperity\s*=\s*([0-9.]+)', body)
+        c_m = re.search(r'country\s*=\s*"?([A-Z0-9_]+)"?', body)
+        if p_m and c_m:
+            pros = float(p_m.group(1))
+            tag = c_m.group(1)
+            if pros > 0:
+                pros_map[(aname, tag)] = pros
+    return pros_map
+
+
 def load_save_full(
     save_path: str, game_data: Any | None = None
 ) -> tuple[dict[str, str], list[CountryData], dict, dict]:
@@ -1027,6 +1135,17 @@ def load_save_full(
     most_dev, tag_province_counts, province_owner_map, tag_base_manpower, tag_province_sets, tag_province_lfl, tag_province_nfl, tag_province_modifiers, prov_info_map = \
         _scan_provinces(root, set(tag_to_player.keys()), coastal_provinces=coastal_provinces)
 
+    # Enrich province data with area and state prosperity
+    prov_to_area = _load_prov_to_area()
+    area_prosperity = _extract_area_prosperity(gamestate_text)
+    for pid, pdata in prov_info_map.items():
+        aname = prov_to_area.get(pid, "")
+        powner = pdata.get("owner", "")
+        pros = area_prosperity.get((aname, powner), 0.0) if aname and powner else 0.0
+        pdata["prosperity"] = round(pros, 1)
+        if aname:
+            pdata["area"] = aname
+
     # Merge battle casualties into province metadata
     casualties_map = _extract_casualties_from_text(gamestate_text)
     for pid, cdata in casualties_map.items():
@@ -1050,7 +1169,27 @@ def load_save_full(
                 if f_tag and s_tag and stype:
                     dependency_map[(f_tag, s_tag)] = stype
 
+    curia_controller = ""
+    papacy_node = root.get_node("papacy")
+    if papacy_node:
+        curia_controller = papacy_node.get_str("controller")
+
+    hre_emperor = ""
+    empire_node = root.get_node("empire") or root.get_node("hre")
+    if empire_node:
+        hre_emperor = empire_node.get_str("emperor")
+
+    tag_names: dict[str, str] = {}
+    if countries_node:
+        for ctag, cnode in countries_node.items():
+            if isinstance(cnode, ClausewitzNode):
+                cname = cnode.get_str("name") or cnode.get_str("custom_name")
+                if cname:
+                    tag_names[ctag] = cname
+
     for cd in countries:
+        cd.is_curia_controller = (cd.tag == curia_controller)
+        cd.is_hre_emperor = (cd.tag == hre_emperor)
         cd.province_count = tag_province_counts.get(cd.tag, 0)
         cd.hegemony = hegemony_map.get(cd.tag, "")
         cd.base_manpower_sum = tag_base_manpower.get(cd.tag, 0.0)
@@ -1065,6 +1204,7 @@ def load_save_full(
         if countries_node:
             cn = countries_node.get_node(cd.tag)
             if cn:
+                cd.naval_doctrine = cn.get_str("naval_doctrine")
                 cd.is_subject = bool(cn.get_str("overlord") or cn.get_str("is_subject") == "yes")
                 subs = cn.get_node("subjects")
                 if subs:
@@ -1084,8 +1224,8 @@ def load_save_full(
 
                         if is_cn:
                             cn_prov_count = tag_province_counts.get(stag, 0)
-                            # CNs transfer ~0.01 of naval FL
-                            sub_nfl += 0.01 * (12.0 + sub_prov_nfl)
+                            # CNs transfer 2% of their province naval FL in EU4
+                            sub_nfl += 0.02 * sub_prov_nfl
                             if cn_prov_count >= 10:
                                 sub_lfl += 5.0
                                 large_cn_count += 1
@@ -1093,7 +1233,8 @@ def load_save_full(
                             # Regular vassal / march / client state / appanage / daimyo
                             pct = 0.20 if is_march else 0.10
                             sub_lfl += 1.0 + pct * (6.0 + sub_prov_lfl)
-                            sub_nfl += (0.10 if is_march else 0.05) * (12.0 + sub_prov_nfl)
+                            if is_march:
+                                sub_nfl += 0.10 * (12.0 + sub_prov_nfl)
 
         cd.subject_lfl = sub_lfl
         cd.subject_nfl = sub_nfl
@@ -1107,6 +1248,7 @@ def load_save_full(
         "tag_province_nfl": tag_province_nfl,
         "raw_monuments": raw_monuments,
         "prov_info_map": prov_info_map,
+        "tag_names": tag_names,
     }
 
     return players_countries, countries, most_dev, extra

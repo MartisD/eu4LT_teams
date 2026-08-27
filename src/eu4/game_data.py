@@ -64,6 +64,8 @@ class GameData:
     estate_privilege_land_modifiers: dict[str, dict[str, float]] = field(default_factory=dict)
     # estate_name → {modifier_key: value} when loyalty >= 60%
     estate_happy_modifiers: dict[str, dict[str, float]] = field(default_factory=dict)
+    # estate_name → {modifier_key: value} when loyalty is neutral (30-59%)
+    estate_neutral_modifiers: dict[str, dict[str, float]] = field(default_factory=dict)
     # estate_name → {modifier_key: value} when loyalty < 30%
     estate_angry_modifiers: dict[str, dict[str, float]] = field(default_factory=dict)
     # government_mechanic_name or power_name → {modifier_key: max_value_at_100}
@@ -78,6 +80,8 @@ class GameData:
     idea_name_to_slot: dict[str, tuple[str, int]] = field(default_factory=dict)
     # great_project_name → {tier_int: {modifier_key: value}}  (country_modifiers per tier)
     great_projects: dict[str, dict[int, dict[str, float]]] = field(default_factory=dict)
+    # great_project_name → can_use_modifiers_trigger ClausewitzNode
+    great_project_triggers: dict[str, ClausewitzNode] = field(default_factory=dict)
     # colonial_region_name → set of province IDs belonging to that region
     colonial_region_provinces: dict[str, set] = field(default_factory=dict)
     # government_rank_int → {modifier_key: value}
@@ -88,6 +92,8 @@ class GameData:
     coastal_provinces: set[int] = field(default_factory=set)
     # tech_type ('adm'/'dip'/'mil') → list of year per tech level (index 0 = tech 1)
     tech_years: dict[str, list[int]] = field(default_factory=dict)
+    # naval_doctrine_name → {modifier_key: value}
+    naval_doctrines: dict[str, dict[str, float]] = field(default_factory=dict)
 
     def get_advisor_type_name(self, type_int: int) -> Optional[str]:
         return self.advisor_type_names.get(type_int)
@@ -350,6 +356,30 @@ def _load_triggered_modifiers_file(path: str, data: GameData) -> None:
         )
 
 
+def _load_estates_file(path: str, data: GameData) -> None:
+    """Load estate definitions, extracting country_modifier_happy, country_modifier_neutral, and country_modifier_angry."""
+    with open(path, encoding="utf-8", errors="ignore") as f:
+        root = parse(f.read())
+    for estate_name, estate_node in root.items():
+        if not isinstance(estate_node, ClausewitzNode):
+            continue
+        happy_node = estate_node.get_node("country_modifier_happy")
+        if happy_node:
+            mods = _parse_modifier_block(happy_node)
+            if mods:
+                data.estate_happy_modifiers[estate_name] = mods
+        neutral_node = estate_node.get_node("country_modifier_neutral")
+        if neutral_node:
+            mods = _parse_modifier_block(neutral_node)
+            if mods:
+                data.estate_neutral_modifiers[estate_name] = mods
+        angry_node = estate_node.get_node("country_modifier_angry")
+        if angry_node:
+            mods = _parse_modifier_block(angry_node)
+            if mods:
+                data.estate_angry_modifiers[estate_name] = mods
+
+
 def _load_great_projects_file(path: str, data: GameData) -> None:
     """Load great project / monument files, extracting country_modifiers and modifier per tier."""
     with open(path, encoding="utf-8", errors="ignore") as f:
@@ -370,10 +400,18 @@ def _load_great_projects_file(path: str, data: GameData) -> None:
             m_node = tier_node.get_node("modifier")
             if m_node:
                 mods.update(_parse_modifier_block(m_node))
+            olm_node = tier_node.get_node("overlord_country_modifiers") or tier_node.get_node("overlord_modifiers")
+            if olm_node:
+                for k, v in _parse_modifier_block(olm_node).items():
+                    key = k if k.startswith("overlord_") else f"overlord_{k}"
+                    mods[key] = v
             if mods:
                 tier_mods[i] = mods
         if tier_mods:
             data.great_projects[project_name] = tier_mods
+            trig_node = project_node.get_node("can_use_modifiers_trigger")
+            if trig_node:
+                data.great_project_triggers[project_name] = trig_node
 
 
 def _load_colonial_regions_file(path: str, data: GameData) -> None:
@@ -429,6 +467,28 @@ def _load_ruler_personalities_file(path: str, data: GameData) -> None:
             mods = _parse_modifier_block(pers_node)
         if mods:
             data.ruler_personalities[pers_name] = mods
+
+
+def _load_naval_doctrines_file(path: str, data: GameData) -> None:
+    """Load naval doctrines, mapping doctrine name → modifier dict."""
+    with open(path, encoding="utf-8", errors="ignore") as f:
+        root = parse(f.read())
+
+    for doc_name, doc_node in root.items():
+        if not isinstance(doc_node, ClausewitzNode):
+            continue
+        mods: dict[str, float] = {}
+        for k, v in doc_node.items():
+            if isinstance(v, str) and k not in ("button_gfx", "trigger", "can_select", "is_in_fleet"):
+                try:
+                    mods[k] = float(v)
+                except ValueError:
+                    pass
+        cmod = doc_node.get_node("country_modifier") or doc_node.get_node("modifier")
+        if cmod:
+            mods.update(_parse_modifier_block(cmod))
+        if mods:
+            data.naval_doctrines[doc_name] = mods
 
 
 def _load_tech_years_file(path: str, tech_type: str, data: GameData) -> None:
@@ -561,6 +621,11 @@ def load_game_data(base_path: str, mod_paths: list[str] | None = None) -> GameDa
         _load_directory(
             os.path.join(root_path, "common", "ruler_personalities"),
             _load_ruler_personalities_file,
+            data,
+        )
+        _load_directory(
+            os.path.join(root_path, "common", "naval_doctrines"),
+            _load_naval_doctrines_file,
             data,
         )
 

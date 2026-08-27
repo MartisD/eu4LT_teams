@@ -6,6 +6,7 @@ with complete provenance breakdown tracking.
 from __future__ import annotations
 
 from typing import Any
+from clausewitz.parser import ClausewitzNode
 from eu4.game_data import GameData
 from eu4.save_reader import CountryData
 
@@ -18,6 +19,7 @@ class ModifierEngine:
         raw_monuments: list[tuple[str, int, str | None]] | None = None,
         dof_tags: set[str] | None = None,
         province_owner_map: dict[str, str] | None = None,
+        tag_names: dict[str, str] | None = None,
     ) -> None:
         """
         Populate country.compiled_modifiers and country.modifier_breakdowns by evaluating all active sources.
@@ -67,10 +69,31 @@ class ModifierEngine:
             merge_dict(ig.traditions, f"idea:{group_name}(tradition)")
             # Individual unlocked ideas
             for idx in range(min(completed_levels, len(ig.ideas))):
-                merge_dict(ig.ideas[idx], f"idea:{group_name}[{idx+1}]")
+                idea_dict = dict(ig.ideas[idx])
+                merge_dict(idea_dict, f"idea:{group_name}[{idx+1}]")
             # Ambition / Bonus (all 7 completed)
             if completed_levels >= 7 and ig.bonus:
                 merge_dict(ig.bonus, f"idea:{group_name}(ambition)")
+
+            # Mod triggered modifiers for idea groups
+            if group_name == "humanist_ideas" and completed_levels >= 3:
+                acc_count = getattr(country, "accepted_culture_count", 0) or len(getattr(country, "accepted_cultures", []))
+                if acc_count >= 7:
+                    add_mod("land_morale", 0.075, "humanist_bonus", "Humanist Ideas Bonus (7+ Accepted Cultures)")
+
+            if group_name == "kolonialimperium0":
+                cn_count = len(getattr(country, "colonial_nation_tags", []))
+                if cn_count > 0:
+                    if completed_levels >= 3:
+                        kolo4_bonus = min(0.25, 0.05 * cn_count)
+                        add_mod("global_manpower_modifier", kolo4_bonus, f"kolo4_{cn_count}_bonus", f"kolo4_{cn_count}_bonus")
+                        add_mod("global_sailors_modifier", kolo4_bonus, f"kolo4_{cn_count}_bonus", f"kolo4_{cn_count}_bonus")
+                    if completed_levels >= 4:
+                        add_mod("global_tariffs", 0.05 * cn_count, f"kolo3_{cn_count}_bonus", f"kolo3_{cn_count}_bonus")
+                        add_mod("inflation_reduction", -0.15 * cn_count, f"kolo3_{cn_count}_bonus", f"kolo3_{cn_count}_bonus")
+                    if completed_levels >= 5:
+                        kolo6_bonus = min(0.25, 0.05 * cn_count)
+                        add_mod("naval_forcelimit_modifier", kolo6_bonus, f"kolo6_{cn_count}_bonus", f"kolo6_{cn_count}_bonus")
 
         # 2. Active Policies
         for pol in country.active_policies:
@@ -124,6 +147,97 @@ class ModifierEngine:
                 merge_dict(tmods, f"trait:{trait}")
 
         # 8. Monuments (Great Projects)
+        def is_monument_active(proj_name: str, owner_tag: str) -> bool:
+            trig = game_data.great_project_triggers.get(proj_name)
+            if not trig:
+                return True
+
+            def check_cond(node: ClausewitzNode) -> bool:
+                for k, v in node.items():
+                    if k == "OR":
+                        if isinstance(v, ClausewitzNode):
+                            or_passed = False
+                            for or_k, or_v in v.items():
+                                if or_k in ("owned_by", "tag"):
+                                    tags = [or_v] if isinstance(or_v, str) else (list(or_v.array) if isinstance(or_v, ClausewitzNode) else [str(or_v)])
+                                    if owner_tag in tags or country.tag in tags:
+                                        or_passed = True
+                                        break
+                                elif or_k == "religion":
+                                    rels = [or_v] if isinstance(or_v, str) else (list(or_v.array) if isinstance(or_v, ClausewitzNode) else [str(or_v)])
+                                    if country.religion in rels:
+                                        or_passed = True
+                                        break
+                                elif or_k == "culture":
+                                    culs = [or_v] if isinstance(or_v, str) else (list(or_v.array) if isinstance(or_v, ClausewitzNode) else [str(or_v)])
+                                    acc = getattr(country, "accepted_cultures", [])
+                                    if any(c in acc or c == getattr(country, "primary_culture", "") for c in culs):
+                                        or_passed = True
+                                        break
+                                elif or_k == "culture_group":
+                                    or_passed = True
+                                    break
+                                elif isinstance(or_v, ClausewitzNode):
+                                    if check_cond(or_v):
+                                        or_passed = True
+                                        break
+                            if not or_passed:
+                                return False
+                    elif k == "AND":
+                        if isinstance(v, ClausewitzNode):
+                            if not check_cond(v):
+                                return False
+                    elif k in ("owned_by", "tag"):
+                        tags = [v] if isinstance(v, str) else (list(v.array) if isinstance(v, ClausewitzNode) else [str(v)])
+                        if owner_tag not in tags and country.tag not in tags:
+                            return False
+                    elif k == "owner":
+                        if isinstance(v, ClausewitzNode):
+                            for ok, ov in v.items():
+                                if ok in ("tag", "owned_by"):
+                                    tags = [ov] if isinstance(ov, str) else (list(ov.array) if isinstance(ov, ClausewitzNode) else [str(ov)])
+                                    if owner_tag not in tags and country.tag not in tags:
+                                        return False
+                                elif ok == "government":
+                                    if country.government_type != str(ov):
+                                        return False
+                                elif ok == "has_reform":
+                                    if str(ov) not in getattr(country, "government_reforms", []):
+                                        return False
+                                elif ok == "is_emperor":
+                                    if str(ov) == "yes" and not getattr(country, "is_hre_emperor", False):
+                                        return False
+                                elif ok == "is_curia_controller":
+                                    if str(ov) == "yes" and not getattr(country, "is_curia_controller", False):
+                                        return False
+                                elif ok == "OR" and isinstance(ov, ClausewitzNode):
+                                    sub_or = False
+                                    for sk, sv in ov.items():
+                                        if sk in ("tag", "owned_by") and (country.tag == str(sv) or owner_tag == str(sv)):
+                                            sub_or = True
+                                        elif sk == "is_emperor" and str(sv) == "yes" and getattr(country, "is_hre_emperor", False):
+                                            sub_or = True
+                                        elif sk == "is_curia_controller" and str(sv) == "yes" and getattr(country, "is_curia_controller", False):
+                                            sub_or = True
+                                        elif sk == "culture_group":
+                                            sub_or = True
+                                        elif sk == "primary_culture":
+                                            if str(sv) == getattr(country, "primary_culture", "") or str(sv) in getattr(country, "accepted_cultures", []):
+                                                sub_or = True
+                                        elif sk == "dynasty":
+                                            sub_or = True
+                                    if not sub_or:
+                                        return False
+                    elif k == "religion":
+                        if country.religion != str(v):
+                            return False
+                    elif k == "custom_trigger_tooltip":
+                        if isinstance(v, ClausewitzNode) and not check_cond(v):
+                            return False
+                return True
+
+            return check_cond(trig)
+
         if raw_monuments and province_owner_map:
             for proj_name, tier, prov_id in raw_monuments:
                 if tier <= 0 or not prov_id:
@@ -135,15 +249,18 @@ class ModifierEngine:
                     continue
 
                 if owner == country.tag:
-                    merge_dict(t_mods, f"monument:{proj_name}(T{tier})")
+                    if is_monument_active(proj_name, owner):
+                        merge_dict(t_mods, f"monument:{proj_name}(T{tier})")
                 elif any(s == owner for s in getattr(country, "subjects", [])):
-                    overlord_mods = {
-                        k.replace("overlord_", ""): v
-                        for k, v in t_mods.items()
-                        if k.startswith("overlord_")
-                    }
-                    if overlord_mods:
-                        merge_dict(overlord_mods, f"monument:{proj_name}(subject:{owner})(T{tier})")
+                    if is_monument_active(proj_name, owner):
+                        overlord_mods = {
+                            k.replace("overlord_", ""): v
+                            for k, v in t_mods.items()
+                            if k.startswith("overlord_")
+                        }
+                        if overlord_mods:
+                            sub_name = tag_names.get(owner, owner) if tag_names else owner
+                            merge_dict(overlord_mods, f"monument:{proj_name}(subject:{owner})(T{tier})", desc=f"{sub_name}")
 
         # 8b. Active Province Modifiers on Owned Provinces (Country-wide modifiers only)
         COUNTRY_WIDE_KEYS = {
@@ -156,6 +273,7 @@ class ModifierEngine:
             "global_unrest", "all_power_cost", "technology_cost",
             "idea_cost", "development_cost", "development_cost_modifier",
             "goods_produced_modifier", "global_trade_goods_size_modifier",
+            "galley_power", "galley_combat_ability", "heavy_ship_power", "infantry_power", "cavalry_power", "artillery_power",
             "global_tax_modifier", "global_manpower_modifier", "global_sailors_modifier",
             "production_efficiency", "trade_efficiency", "manpower_recovery_speed",
             "sailors_recovery_speed", "ae_impact", "improve_relation_modifier",
@@ -189,6 +307,12 @@ class ModifierEngine:
         elif country.government_rank >= 2:
             add_mod("governing_capacity", 200.0, "gov_rank:2")
 
+        # 10b. Naval Doctrine
+        if getattr(country, "naval_doctrine", ""):
+            doc_mods = game_data.naval_doctrines.get(country.naval_doctrine)
+            if doc_mods:
+                merge_dict(doc_mods, f"naval_doctrine:{country.naval_doctrine}", desc=f"Naval Doctrine ({country.naval_doctrine.replace('_', ' ').title()})")
+
         # 11. Golden Age
         if country.golden_age:
             apply_static_modifier("golden_age", 1.0, "Golden Age", fallback_mods={"all_power_cost": -0.10, "morale_armies": 0.10, "naval_morale": 0.10, "goods_produced_modifier": 0.10, "max_absolutism": 5.0})
@@ -196,6 +320,14 @@ class ModifierEngine:
         # 12. Defender of the Faith
         if dof_tags and country.tag in dof_tags:
             apply_static_modifier("defender_of_faith", 1.0, "Defender of the Faith", fallback_mods={"morale_armies": 0.05, "naval_morale": 0.05, "manpower_recovery_speed": 0.20, "war_exhaustion": -0.03})
+
+        # 12b. Curia Controller
+        if getattr(country, "is_curia_controller", False):
+            apply_static_modifier("curia_controller", 1.0, "Curia Controller", fallback_mods={"diplomatic_reputation": 1.0, "diplomats": 1.0, "advisor_cost": -0.20, "ae_impact": -0.20, "technology_cost": -0.05, "prestige": 1.0})
+
+        # 12c. HRE Emperor
+        if getattr(country, "is_hre_emperor", False):
+            apply_static_modifier("emperor", 1.0, "Holy Roman Emperor", fallback_mods={"diplomatic_upkeep": 1.0, "prestige": 1.0, "advisor_pool": 1.0})
 
         # 13. Hegemony
         if country.hegemony:
@@ -231,7 +363,7 @@ class ModifierEngine:
         if pp > 0:
             apply_static_modifier("power_projection", pp / 100.0, f"Power Projection ({pp:.1f})", fallback_mods={"morale_armies": 0.10, "defensiveness": 0.10, "global_trade_power": 0.10})
 
-        # 15. Estate Loyalty Effects (Happy >=60%, Angry <30%) from game files
+        # 15. Estate Loyalty Effects (Happy >=60%, Neutral 30-59%, Angry <30%) from game files
         for etype, loyalty, _territory in getattr(country, "estates", []):
             ename = etype.replace("estate_", "").replace("_", " ").title()
             if loyalty >= 60.0:
@@ -248,17 +380,30 @@ class ModifierEngine:
                     elif etype in ("estate_church", "estate_brahmins"):
                         add_mod("global_tax_modifier", 0.20, f"estate_loyalty:{etype}", f"{ename} Loyal (>=60%)")
                         add_mod("stability_cost_modifier", -0.10, f"estate_loyalty:{etype}", f"{ename} Loyal")
+            elif loyalty >= 30.0:
+                neutral_mods = game_data.estate_neutral_modifiers.get(etype)
+                if neutral_mods:
+                    # Neutral estate loyalty gives country_modifier_neutral scaled by 0.75 (+15% trade efficiency for burghers)
+                    merge_dict(neutral_mods, f"estate_loyalty:{etype}", scale=0.75, desc=f"{ename} Neutral (30-59%)")
+                else:
+                    if etype in ("estate_burghers", "estate_vaisyas"):
+                        add_mod("trade_efficiency", 0.15, f"estate_loyalty:{etype}", f"{ename} Neutral (30-59%)")
+                    elif etype in ("estate_nobles", "estate_nobility", "estate_maratha", "estate_rajput", "estate_nomadic_tribes"):
+                        add_mod("manpower_recovery_speed", 0.15, f"estate_loyalty:{etype}", f"{ename} Neutral (30-59%)")
+                    elif etype in ("estate_church", "estate_brahmins"):
+                        add_mod("global_tax_modifier", 0.15, f"estate_loyalty:{etype}", f"{ename} Neutral (30-59%)")
             elif loyalty < 30.0:
                 angry_mods = game_data.estate_angry_modifiers.get(etype)
                 if angry_mods:
                     merge_dict(angry_mods, f"estate_disloyal:{etype}", desc=f"{ename} Disloyal (<30%)")
                 else:
                     if etype in ("estate_burghers", "estate_vaisyas"):
-                        add_mod("trade_efficiency", -0.20, f"estate_disloyal:{etype}", f"{ename} Disloyal (<30%)")
+                        add_mod("trade_efficiency", -0.10, f"estate_disloyal:{etype}", f"{ename} Disloyal (<30%)")
+                        add_mod("development_cost", 0.10, f"estate_disloyal:{etype}", f"{ename} Disloyal (<30%)")
                     elif etype in ("estate_nobles", "estate_nobility", "estate_maratha", "estate_rajput"):
-                        add_mod("manpower_recovery_speed", -0.20, f"estate_disloyal:{etype}", f"{ename} Disloyal (<30%)")
+                        add_mod("manpower_recovery_speed", -0.10, f"estate_disloyal:{etype}", f"{ename} Disloyal (<30%)")
                     elif etype in ("estate_church", "estate_brahmins"):
-                        add_mod("global_tax_modifier", -0.20, f"estate_disloyal:{etype}", f"{ename} Disloyal (<30%)")
+                        add_mod("global_tax_modifier", -0.10, f"estate_disloyal:{etype}", f"{ename} Disloyal (<30%)")
 
         # 16. Stability (-3 to +3)
         stab = country.stability
@@ -266,6 +411,23 @@ class ModifierEngine:
             apply_static_modifier("positive_stability", stab, f"Stability (+{int(stab)})", fallback_mods={"global_tax_modifier": 0.05, "global_unrest": -1.0, "global_missionary_strength": 0.005}, category="stability")
         elif stab < 0:
             apply_static_modifier("negative_stability", abs(stab), f"Negative Stability ({int(stab)})", fallback_mods={"global_tax_modifier": 0.05, "global_unrest": -2.0}, category="stability")
+
+        # 16b. Legitimacy / Devotion / Meritocracy / Republican Tradition
+        # In EU4, Legitimacy/Devotion/Meritocracy/RT are dynamic static modifiers.
+        # Legitimacy has baseline 50 (range 0 to 100): 100 grants +1.0 diplo rep, -2 unrest, +10 max absolutism.
+        # In static_modifiers.txt, legitimacy defines values at max 2.0 (e.g. diplo rep 2.0), so scale is (legitimacy - 50.0) / 100.0.
+        if country.government_type == "monarchy" or country.legitimacy > 0:
+            leg_scale = (country.legitimacy - 50.0) / 100.0
+            apply_static_modifier("legitimacy", leg_scale, f"Legitimacy ({country.legitimacy:.1f})", fallback_mods={"diplomatic_reputation": 2.0, "global_unrest": -4.0, "tolerance_own": 2.0, "max_absolutism": 20.0}, category="legitimacy")
+        elif country.government_type == "theocracy" or country.devotion > 0:
+            dev_scale = (country.devotion - 50.0) / 100.0
+            apply_static_modifier("devotion", dev_scale, f"Devotion ({country.devotion:.1f})", fallback_mods={"diplomatic_reputation": 2.0, "prestige": 2.0, "global_tax_modifier": 0.50}, category="devotion")
+        elif country.meritocracy > 0:
+            mer_scale = (country.meritocracy - 50.0) / 100.0
+            apply_static_modifier("meritocracy", mer_scale, f"Meritocracy ({country.meritocracy:.1f})", fallback_mods={"global_spy_defence": 1.0, "advisor_cost": -0.50}, category="meritocracy")
+        elif country.government_type == "republic" or country.republican_tradition > 0:
+            rt_scale = (country.republican_tradition - 50.0) / 100.0
+            apply_static_modifier("republican_tradition", rt_scale, f"Republican Tradition ({country.republican_tradition:.1f})", fallback_mods={"global_unrest": -2.0, "reform_progress_growth": 1.0}, category="republican_tradition")
 
         # 17. Mercantilism (0 to 100)
         merc = max(0.0, country.mercantilism)
@@ -383,9 +545,27 @@ class ModifierEngine:
                 if not apply_static_modifier("ahead_of_time_military", 1.0, f"Ahead in MIL Tech ({country.mil_tech}→{country.mil_tech+1}, yr {next_mil_yr})", category="ahead_of_time:mil"):
                     add_mod("yearly_corruption", -0.05, "ahead_of_time:mil", "Ahead in MIL Tech")
 
-        # 30. Large Colonial Nations bonus (+5 land FL, +10% naval FL per large CN)
+        # 30. Large Colonial Nations bonus (+5 land FL, +1 merchant per large CN)
         if country.large_cn_count > 0:
-            apply_static_modifier("large_colonial_nation", country.large_cn_count, f"{country.large_cn_count} Large CNs", fallback_mods={"naval_forcelimit_modifier": 0.10, "merchants": 1.0, "global_trade_power": 0.05}, category="large_colonial_nations")
+            lcn_mods = dict(game_data.static_modifiers.get("large_colonial_nation", {}))
+            lcn_mods.pop("naval_forcelimit", None)
+            lcn_mods.pop("naval_forcelimit_modifier", None)
+            if not lcn_mods:
+                lcn_mods = {"merchants": 1.0, "global_trade_power": 0.02, "land_forcelimit": 5.0}
+            for k, v in lcn_mods.items():
+                add_mod(k, v * country.large_cn_count, "large_colonial_nations", f"{country.large_cn_count} Large CNs")
+
+        # 31. Army Professionalism (0 to 100%)
+        prof = getattr(country, "army_professionalism", 0.0)
+        if prof > 0:
+            prof_scale = prof / 100.0 if prof > 1.0 else prof
+            apply_static_modifier("high_army_professionalism", prof_scale, f"Army Professionalism ({prof_scale*100:.1f}%)", fallback_mods={"discipline": 0.05, "fire_damage": 0.10, "shock_damage": 0.10, "siege_ability": 0.20})
+
+        # 32. Army Drill (Average Regiment Drill)
+        drill = getattr(country, "average_army_drill", 0.0)
+        if drill > 0:
+            drill_scale = drill / 100.0
+            apply_static_modifier("regiment_drill_modifier", drill_scale, f"Army Drill ({drill:.1f}%)", fallback_mods={"fire_damage": 0.15, "shock_damage": 0.15, "fire_damage_received": -0.25, "shock_damage_received": -0.25, "movement_speed": 0.25})
 
         # Save into country compiled state
         country.compiled_modifiers = mods

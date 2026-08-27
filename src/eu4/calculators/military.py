@@ -10,26 +10,27 @@ from eu4.game_data import GameData
 
 
 def _base_morale(mil_tech: int) -> float:
-    """Base land morale per military tech level."""
-    # Tech 3 starts at 2.0; tech steps increase base morale
+    """Base land morale per military tech level (from common/technologies/mil.txt)."""
     tech_morale = {
-        3: 2.0, 4: 2.5, 5: 2.5, 6: 2.5, 7: 2.5, 8: 2.5, 9: 2.5, 10: 2.5,
-        11: 2.5, 12: 3.0, 13: 3.0, 14: 3.0, 15: 4.0, 16: 4.0, 17: 4.0,
-        18: 4.0, 19: 4.5, 20: 4.5, 21: 4.5, 22: 4.5, 23: 5.0, 24: 5.0,
-        25: 5.0, 26: 6.0, 27: 6.0, 28: 6.0, 29: 6.0, 30: 7.0, 31: 7.0, 32: 7.0
+        1: 2.0, 2: 2.0, 3: 2.0, 4: 2.5, 5: 3.0, 6: 3.0, 7: 3.0, 8: 3.0,
+        9: 3.0, 10: 3.0, 11: 3.0, 12: 3.0, 13: 3.0, 14: 3.0, 15: 3.0,
+        16: 4.0, 17: 4.0, 18: 4.0, 19: 4.0, 20: 4.0, 21: 4.0, 22: 4.0,
+        23: 4.0, 24: 4.0, 25: 4.0, 26: 4.0, 27: 5.0, 28: 5.0, 29: 5.0,
+        30: 5.0, 31: 6.0, 32: 6.0, 33: 6.0
     }
-    return tech_morale.get(mil_tech, 2.0 + 0.15 * max(0, mil_tech - 3))
+    return tech_morale.get(mil_tech, 3.0 if mil_tech < 16 else (4.0 if mil_tech < 27 else 5.0))
 
 
 def _base_naval_morale(dip_tech: int) -> float:
-    """Base naval morale per diplomatic tech level."""
+    """Base naval morale per diplomatic tech level (from common/technologies/dip.txt)."""
     tech_naval = {
-        3: 2.0, 4: 2.0, 5: 2.0, 6: 2.0, 7: 2.0, 8: 2.0, 9: 2.5, 10: 2.5,
-        11: 2.5, 12: 2.5, 13: 2.5, 14: 2.5, 15: 3.0, 16: 3.0, 17: 3.0,
-        18: 3.0, 19: 3.5, 20: 3.5, 21: 3.5, 22: 4.0, 23: 4.0, 24: 4.0,
-        25: 4.0, 26: 4.5, 27: 4.5, 28: 4.5, 29: 4.5, 30: 5.0, 31: 5.0, 32: 5.0
+        1: 2.0, 2: 2.0, 3: 2.0, 4: 2.1, 5: 2.1, 6: 2.1, 7: 2.1, 8: 2.4,
+        9: 2.6, 10: 2.6, 11: 2.6, 12: 2.6, 13: 3.0, 14: 3.0, 15: 3.0,
+        16: 3.0, 17: 3.0, 18: 3.0, 19: 3.5, 20: 3.5, 21: 3.5, 22: 3.5,
+        23: 4.0, 24: 4.0, 25: 4.0, 26: 4.5, 27: 4.5, 28: 5.0, 29: 5.0,
+        30: 5.5, 31: 5.5, 32: 6.0, 33: 6.0
     }
-    return tech_naval.get(dip_tech, 2.0 + 0.1 * max(0, dip_tech - 3))
+    return tech_naval.get(dip_tech, 2.0 if dip_tech < 4 else (2.6 if dip_tech < 13 else 3.0))
 
 
 def calc_discipline(country: CountryData, game_data: GameData) -> ModifierResult:
@@ -89,15 +90,17 @@ def calc_artillery_combat_ability(country: CountryData, game_data: GameData) -> 
 
 def calc_galley_combat_ability(country: CountryData, game_data: GameData) -> ModifierResult:
     """Compute galley combat ability."""
-    total = country.get_modifier("galley_power")
-    bd = [(e["source"], e["value"]) for e in country.get_breakdown("galley_power")]
+    keys = ("galley_power", "galley_combat_ability")
+    total = country.get_modifier(*keys)
+    bd = [(e["source"], e["value"]) for e in country.get_breakdown(*keys)]
     return ModifierResult(total=total, breakdown=bd)
 
 
 def calc_heavy_ship_combat_ability(country: CountryData, game_data: GameData) -> ModifierResult:
     """Compute heavy ship combat ability."""
-    total = country.get_modifier("heavy_ship_power")
-    bd = [(e["source"], e["value"]) for e in country.get_breakdown("heavy_ship_power")]
+    keys = ("heavy_ship_power", "heavy_ship_combat_ability")
+    total = country.get_modifier(*keys)
+    bd = [(e["source"], e["value"]) for e in country.get_breakdown(*keys)]
     return ModifierResult(total=total, breakdown=bd)
 
 
@@ -132,9 +135,11 @@ def calc_army_force_limit(country: CountryData, game_data: GameData) -> Modifier
     if sub_fl > 0:
         bd.append(("subjects", sub_fl))
     for e in country.get_breakdown("land_forcelimit"):
-        bd.append((e["source"] + "(flat)", e["value"]))
+        src = e.get("desc") or e["source"]
+        bd.append((src if "(flat)" in src else f"{src}(flat)", e["value"]))
     for e in country.get_breakdown("land_forcelimit_modifier"):
-        bd.append((e["source"] + "(mod%)", e["value"]))
+        src = e.get("desc") or e["source"]
+        bd.append((src if "(mod%)" in src else f"{src}(mod%)", e["value"]))
 
     total = base_fl * (1.0 + pct_mod)
     return ModifierResult(total=total, breakdown=bd)
@@ -157,9 +162,11 @@ def calc_naval_force_limit(country: CountryData, game_data: GameData) -> Modifie
     if sub_fl > 0:
         bd.append(("subjects", sub_fl))
     for e in country.get_breakdown("naval_forcelimit"):
-        bd.append((e["source"] + "(flat)", e["value"]))
+        src = e.get("desc") or e["source"]
+        bd.append((src if "(flat)" in src else f"{src}(flat)", e["value"]))
     for e in country.get_breakdown("naval_forcelimit_modifier", "global_naval_forcelimit_modifier"):
-        bd.append((e["source"] + "(mod%)", e["value"]))
+        src = e.get("desc") or e["source"]
+        bd.append((src if "(mod%)" in src else f"{src}(mod%)", e["value"]))
 
     total = base_fl * (1.0 + pct_mod)
     return ModifierResult(total=total, breakdown=bd)

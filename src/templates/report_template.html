@@ -1307,12 +1307,18 @@
 
             const mapW = {{ map_data.width if map_data else 5632 }};
             const mapH = {{ map_data.height if map_data else 2048 }};
+            const halfW = {{ map_data.half_width if map_data else 2816 }};
             const palW = {{ map_data.palette_width if map_data else 2048 }};
             const palH = {{ map_data.palette_height if map_data else 18 }};
             const rowsPerMode = {{ map_data.rows_per_mode if (map_data and map_data.rows_per_mode) else 3 }};
-            const provIdSrc = "{{ map_data.provinces_id_b64 if map_data else '' }}";
+            const provWestSrc = "{{ map_data.provinces_id_west_b64 if map_data else '' }}";
+            const provEastSrc = "{{ map_data.provinces_id_east_b64 if map_data else '' }}";
             const palSrc = "{{ map_data.palette_b64 if map_data else '' }}";
             const provData = {{ map_data.provinces_json|safe if map_data else '{}' }};
+            const minDev = {{ map_data.min_dev if map_data else 1 }};
+            const maxDev = {{ map_data.max_dev if map_data else 44 }};
+            const minCas = {{ map_data.min_cas if map_data else 1 }};
+            const maxCas = {{ map_data.max_cas if map_data else 350000 }};
 
             const gl = canvas.getContext('webgl2', { antialias: false, depth: false, preserveDrawingBuffer: false });
             if (!gl) {
@@ -1339,7 +1345,8 @@
             in vec2 v_uv;
             out vec4 fragColor;
 
-            uniform sampler2D u_provinces;
+            uniform sampler2D u_provinces_west;
+            uniform sampler2D u_provinces_east;
             uniform sampler2D u_palette;
             uniform vec2 u_resolution;
             uniform vec2 u_screen_size;
@@ -1352,7 +1359,12 @@
 
             int raw_pid_at(vec2 uv) {
                 if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0;
-                vec4 p = texture(u_provinces, uv);
+                vec4 p;
+                if (uv.x < 0.5) {
+                    p = texture(u_provinces_west, vec2(uv.x * 2.0, uv.y));
+                } else {
+                    p = texture(u_provinces_east, vec2((uv.x - 0.5) * 2.0, uv.y));
+                }
                 return int(p.r * 255.0 + 0.5) + int(p.g * 255.0 + 0.5) * 256;
             }
 
@@ -1522,86 +1534,100 @@
             const uRowsPerModeLoc = gl.getUniformLocation(program, 'u_rows_per_mode');
             const uMapModeLoc = gl.getUniformLocation(program, 'u_map_mode');
             const uHoveredPidLoc = gl.getUniformLocation(program, 'u_hovered_pid');
-            const uProvincesLoc = gl.getUniformLocation(program, 'u_provinces');
+            const uProvincesWestLoc = gl.getUniformLocation(program, 'u_provinces_west');
+            const uProvincesEastLoc = gl.getUniformLocation(program, 'u_provinces_east');
             const uPaletteLoc = gl.getUniformLocation(program, 'u_palette');
 
             gl.uniform2f(uResLoc, mapW, mapH);
             gl.uniform1f(uPalWLoc, palW);
             gl.uniform1f(uPalHLoc, palH);
             gl.uniform1f(uRowsPerModeLoc, rowsPerMode);
-            gl.uniform1i(uProvincesLoc, 0);
-            gl.uniform1i(uPaletteLoc, 1);
+            gl.uniform1i(uProvincesWestLoc, 0);
+            gl.uniform1i(uProvincesEastLoc, 1);
+            gl.uniform1i(uPaletteLoc, 2);
 
             // Setup Textures
-            const provTex = gl.createTexture();
+            const provWestTex = gl.createTexture();
             gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, provTex);
+            gl.bindTexture(gl.TEXTURE_2D, provWestTex);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+            const provEastTex = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, provEastTex);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
             const palTex = gl.createTexture();
-            gl.activeTexture(gl.TEXTURE1);
+            gl.activeTexture(gl.TEXTURE2);
             gl.bindTexture(gl.TEXTURE_2D, palTex);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-            let provImgLoaded = false;
+            let provWestLoaded = false;
+            let provEastLoaded = false;
             let palImgLoaded = false;
-            let imgData = null;
-            let texW = mapW;
-            let texH = mapH;
+            let provWestData = null;
+            let provEastData = null;
 
-            const provImg = new Image();
-            provImg.onload = function() {
-                const maxTexSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
-                let texSource = provImg;
-                texW = mapW;
-                texH = mapH;
-
-                if (mapW > maxTexSize || mapH > maxTexSize) {
-                    const scaleFactor = Math.min(maxTexSize / mapW, maxTexSize / mapH);
-                    texW = Math.floor(mapW * scaleFactor);
-                    texH = Math.floor(mapH * scaleFactor);
-
-                    const sCanvas = document.createElement('canvas');
-                    sCanvas.width = texW;
-                    sCanvas.height = texH;
-                    const sCtx = sCanvas.getContext('2d');
-                    sCtx.imageSmoothingEnabled = false;
-                    sCtx.drawImage(provImg, 0, 0, texW, texH);
-                    texSource = sCanvas;
+            function checkAllReady() {
+                if (provWestLoaded && provEastLoaded && palImgLoaded) {
+                    render();
                 }
+            }
 
+            const westImg = new Image();
+            westImg.onload = function() {
                 gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, provTex);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texSource);
-                gl.uniform2f(uResLoc, texW, texH);
-                provImgLoaded = true;
+                gl.bindTexture(gl.TEXTURE_2D, provWestTex);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, westImg);
 
-                // Offscreen canvas for instant 60fps hover & tap hit-testing
-                const offCanvas = document.createElement('canvas');
-                offCanvas.width = texW;
-                offCanvas.height = texH;
-                const offCtx = offCanvas.getContext('2d', { willReadFrequently: true });
-                offCtx.imageSmoothingEnabled = false;
-                offCtx.drawImage(provImg, 0, 0, texW, texH);
-                imgData = offCtx.getImageData(0, 0, texW, texH).data;
+                const offW = document.createElement('canvas');
+                offW.width = halfW;
+                offW.height = mapH;
+                const ctxW = offW.getContext('2d', { willReadFrequently: true });
+                ctxW.imageSmoothingEnabled = false;
+                ctxW.drawImage(westImg, 0, 0);
+                provWestData = ctxW.getImageData(0, 0, halfW, mapH).data;
 
-                render();
+                provWestLoaded = true;
+                checkAllReady();
             };
-            provImg.src = provIdSrc;
+            westImg.src = provWestSrc;
+
+            const eastImg = new Image();
+            eastImg.onload = function() {
+                gl.activeTexture(gl.TEXTURE1);
+                gl.bindTexture(gl.TEXTURE_2D, provEastTex);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, eastImg);
+
+                const offE = document.createElement('canvas');
+                offE.width = halfW;
+                offE.height = mapH;
+                const ctxE = offE.getContext('2d', { willReadFrequently: true });
+                ctxE.imageSmoothingEnabled = false;
+                ctxE.drawImage(eastImg, 0, 0);
+                provEastData = ctxE.getImageData(0, 0, halfW, mapH).data;
+
+                provEastLoaded = true;
+                checkAllReady();
+            };
+            eastImg.src = provEastSrc;
 
             const palImg = new Image();
             palImg.onload = function() {
-                gl.activeTexture(gl.TEXTURE1);
+                gl.activeTexture(gl.TEXTURE2);
                 gl.bindTexture(gl.TEXTURE_2D, palTex);
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, palImg);
                 palImgLoaded = true;
-                render();
+                checkAllReady();
             };
             palImg.src = palSrc;
 
@@ -1619,7 +1645,7 @@
                 'players': 0,
                 'political': 1,
                 'teams': 2,
-                'naval': 3,
+                'devastation': 3,
                 'dev': 4,
                 'casualties': 5
             };
@@ -1637,7 +1663,7 @@
             }
 
             function render() {
-                if (!provImgLoaded || !palImgLoaded) return;
+                if (!provWestLoaded || !provEastLoaded || !palImgLoaded) return;
                 resizeCanvas();
 
                 const rect = wrapper.getBoundingClientRect();
@@ -1723,6 +1749,7 @@
                         <div class="map-legend-item"><div class="map-legend-swatch" style="background:#0ea5e9"></div> BAH</div>
                         <div class="map-legend-item"><div class="map-legend-swatch" style="background:#f59e0b"></div> QNG</div>
                         <div class="map-legend-item"><div class="map-legend-swatch" style="background:#9f1239"></div> BUR</div>
+                        ${activeMode === 'players' ? '<div class="map-legend-item"><div class="map-legend-swatch" style="background:#cbd5e1; border:1px dashed #94a3b8"></div> Player Subjects (Lighter Tint)</div>' : ''}
                         ${activeMode === 'players' ? '<div class="map-legend-item"><div class="map-legend-swatch" style="background:#2a3444"></div> Neutral / Non-Player</div>' : ''}
                         <div class="map-legend-item"><div class="map-legend-swatch" style="background:#4b5563"></div> Wastelands</div>
                     `;
@@ -1733,42 +1760,53 @@
                         <div class="map-legend-item"><div class="map-legend-swatch" style="background:#2a3444"></div> Unaligned / Neutral</div>
                         <div class="map-legend-item"><div class="map-legend-swatch" style="background:#4b5563"></div> Wastelands</div>
                     `;
-                } else if (activeMode === 'naval') {
+                } else if (activeMode === 'devastation') {
                     legend.innerHTML = `
-                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#0ea5e9"></div> Coastal Province</div>
-                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#f59e0b"></div> Naval Supplies (+0.5 FL)</div>
-                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#38bdf8"></div> Shipyard / Port</div>
-                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#232d3c"></div> Inland</div>
+                        <div class="map-legend-item" style="gap:10px;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <div class="map-legend-swatch" style="background:#22c55e"></div>
+                                <span style="color:#4ade80; font-weight:700;">Prosperous State (Green)</span>
+                            </div>
+                            <span style="color:var(--text-muted); font-weight:600; margin-left:8px;">0% Devastation (Grey)</span>
+                            <div style="width:140px; height:10px; border-radius:3px; background: linear-gradient(to right, #4b5563, #f97316, #ef4444, #991b1b); border: 1px solid rgba(255,255,255,0.2);"></div>
+                            <span style="color:#f87171; font-weight:600;">100% Devastated (Red)</span>
+                        </div>
                     `;
                 } else if (activeMode === 'dev') {
                     legend.innerHTML = `
                         <div class="map-legend-item" style="gap:10px;">
-                            <span style="color:var(--text-muted); font-weight:600;">Low (1 Dev)</span>
-                            <div style="width:140px; height:10px; border-radius:3px; background: linear-gradient(to right, #182d52, #0e74b9, #0ea5e9, #22c55e, #eab308, #f97316, #ef4444, #f43f5e); border: 1px solid rgba(255,255,255,0.2);"></div>
-                            <span style="color:var(--text-muted); font-weight:600;">High (60+ Dev)</span>
+                            <span style="color:#f87171; font-weight:600;">Min (${minDev} Dev - Red)</span>
+                            <div style="width:150px; height:10px; border-radius:3px; background: linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e); border: 1px solid rgba(255,255,255,0.2);"></div>
+                            <span style="color:#4ade80; font-weight:600;">Max (${maxDev} Dev - Green)</span>
                         </div>
                     `;
                 } else if (activeMode === 'casualties') {
                     legend.innerHTML = `
                         <div class="map-legend-item" style="gap:10px;">
-                            <span style="color:var(--text-muted); font-weight:600;">Peaceful (0 Dead)</span>
-                            <div style="width:150px; height:10px; border-radius:3px; background: linear-gradient(to right, #1e293b, #1e3a8a, #10b981, #eab308, #f97316, #ef4444, #d946ef); border: 1px solid rgba(255,255,255,0.2);"></div>
-                            <span style="color:var(--text-muted); font-weight:600;">Bloodbath (350k+ Dead)</span>
+                            <span style="color:#94a3b8; font-weight:600;">None / Min (Grey)</span>
+                            <div style="width:150px; height:10px; border-radius:3px; background: linear-gradient(to right, #4b5563, #d97706, #ef4444, #991b1b); border: 1px solid rgba(255,255,255,0.2);"></div>
+                            <span style="color:#f87171; font-weight:600;">Max (${maxCas.toLocaleString()} Dead - Red)</span>
                         </div>
                     `;
                 }
             }
 
             function getPidAtCoord(clientX, clientY) {
-                if (!imgData) return 0;
+                if (!provWestData || !provEastData) return 0;
                 const rect = wrapper.getBoundingClientRect();
                 const mouseX = clientX - rect.left;
                 const mouseY = clientY - rect.top;
-                const mapX = Math.floor(((mouseX - panX) / scale) * (texW / mapW));
-                const mapY = Math.floor(((mouseY - panY) / scale) * (texH / mapH));
-                if (mapX >= 0 && mapX < texW && mapY >= 0 && mapY < texH) {
-                    const idx = (mapY * texW + mapX) * 4;
-                    return imgData[idx] + imgData[idx + 1] * 256;
+                const mapX = Math.floor((mouseX - panX) / scale);
+                const mapY = Math.floor((mouseY - panY) / scale);
+                if (mapY >= 0 && mapY < mapH) {
+                    if (mapX >= 0 && mapX < halfW) {
+                        const idx = (mapY * halfW + mapX) * 4;
+                        return provWestData[idx] + provWestData[idx + 1] * 256;
+                    } else if (mapX >= halfW && mapX < mapW) {
+                        const localX = mapX - halfW;
+                        const idx = (mapY * halfW + localX) * 4;
+                        return provEastData[idx] + provEastData[idx + 1] * 256;
+                    }
                 }
                 return 0;
             }
@@ -1784,6 +1822,26 @@
                 const mouseX = clientX - rect.left;
                 const mouseY = clientY - rect.top;
 
+                if (prov.waste) {
+                    tooltip.innerHTML = `
+                        <h5>
+                            <span>${prov.name || 'Impassable Wasteland'}</span>
+                            <span class="tag-badge" style="background: rgba(255,255,255,0.1); font-size:10px;">#${pid}</span>
+                        </h5>
+                        <div class="tt-row"><span>Type:</span><span class="tt-val" style="color:#94a3b8;">🏔️ Impassable Wasteland</span></div>
+                    `;
+                    tooltip.style.display = 'block';
+                    let x = mouseX + 16;
+                    let y = mouseY + 16;
+                    const tw = tooltip.offsetWidth || 200;
+                    const th = tooltip.offsetHeight || 80;
+                    if (x + tw > rect.width - 12) x = mouseX - tw - 16;
+                    if (y + th > rect.height - 12) y = mouseY - th - 16;
+                    tooltip.style.left = `${Math.max(10, x)}px`;
+                    tooltip.style.top = `${Math.max(10, y)}px`;
+                    return;
+                }
+
                 const ownerDisp = prov.owner ? `${prov.owner} ${prov.player ? '(' + prov.player + ')' : ''}` : 'Uncolonized / Neutral';
                 const clickPrompt = prov.owner && ['SPA','FRA','HAB','MUG','BUR','MLC','RUS','BAH','QNG'].includes(prov.owner) 
                     ? `<div style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1); color:#60a5fa; font-weight:700; font-size:11px;">🔍 Click / Tap to view ${prov.owner} slide-out stats</div>` 
@@ -1797,6 +1855,11 @@
                     </div>
                 ` : '';
 
+                const devProsBlock = `
+                    ${prov.devastation > 0 ? `<div class="tt-row"><span style="color:#f87171;">🔥 Devastation:</span><span class="tt-val" style="color:#fca5a5; font-weight:700;">${prov.devastation}%</span></div>` : ''}
+                    ${(prov.prosperity > 0 && !prov.devastation) ? `<div class="tt-row"><span style="color:#4ade80;">✨ State Prosperity:</span><span class="tt-val" style="color:#86efac; font-weight:700;">${prov.prosperity}%</span></div>` : ''}
+                `;
+
                 tooltip.innerHTML = `
                     <h5>
                         <span>${prov.name}</span>
@@ -1808,6 +1871,7 @@
                     ${prov.tg ? `<div class="tt-row"><span>Trade Good:</span><span class="tt-val">${prov.tg.replace('_',' ')}</span></div>` : ''}
                     ${prov.aut > 0 ? `<div class="tt-row"><span>Autonomy:</span><span class="tt-val">${prov.aut}%</span></div>` : ''}
                     ${prov.tc ? `<div class="tt-row"><span>Status:</span><span class="tt-val" style="color:#60a5fa;">Trade Company</span></div>` : ''}
+                    ${devProsBlock}
                     ${casualtiesBlock}
                     ${clickPrompt}
                 `;
@@ -1896,7 +1960,7 @@
                 const pid = getPidAtCoord(e.clientX, e.clientY);
                 if (pid > 0) {
                     const prov = provData[pid];
-                    if (prov && prov.owner) {
+                    if (prov && !prov.waste && prov.owner) {
                         openCountryDrawer(prov.owner);
                     }
                 }
@@ -1932,7 +1996,6 @@
                     initialPinchScale = scale;
                     pinchCenterClientX = (t1.clientX + t2.clientX) / 2;
                     pinchCenterClientY = (t1.clientY + t2.clientY) / 2;
-                    if (tooltip) tooltip.style.display = 'none';
                 }
             }, { passive: true });
 
@@ -1942,8 +2005,9 @@
                     e.preventDefault();
                     const curX = e.touches[0].clientX;
                     const curY = e.touches[0].clientY;
-                    const moveDist = Math.hypot(curX - touchStartX, curY - touchStartY);
-                    if (moveDist > 6) touchMoved = true;
+                    if (Math.hypot(curX - touchStartX, curY - touchStartY) > 5) {
+                        touchMoved = true;
+                    }
                     panX = curX - startX;
                     panY = curY - startY;
                     clampPan();
@@ -1983,7 +2047,7 @@
                         if (pid > 0) {
                             showProvinceTooltip(pid, touchStartX, touchStartY);
                             const prov = provData[pid];
-                            if (prov && prov.owner && ['SPA','FRA','HAB','MUG','BUR','MLC','RUS','BAH','QNG'].includes(prov.owner)) {
+                            if (prov && !prov.waste && prov.owner && ['SPA','FRA','HAB','MUG','BUR','MLC','RUS','BAH','QNG'].includes(prov.owner)) {
                                 openCountryDrawer(prov.owner);
                             }
                         } else if (tooltip) {
@@ -2107,8 +2171,8 @@
                 <button type="button" class="map-mode-btn active" data-mode="players">👑 Players</button>
                 <button type="button" class="map-mode-btn" data-mode="political">🌍 Political</button>
                 <button type="button" class="map-mode-btn" data-mode="teams">⚔️ Teams</button>
-                <button type="button" class="map-mode-btn" data-mode="naval">🌊 Coastal &amp; Naval</button>
-                <button type="button" class="map-mode-btn" data-mode="dev">🔥 Development</button>
+                <button type="button" class="map-mode-btn" data-mode="devastation">🔥 Devastation &amp; Prosperity</button>
+                <button type="button" class="map-mode-btn" data-mode="dev">🏛️ Development</button>
                 <button type="button" class="map-mode-btn" data-mode="casualties">💀 Casualties</button>
             </div>
         </div>
@@ -2426,12 +2490,14 @@
                                 {% endif %}
                             </div>
                             <div class="stat-box">
-                                <h4>Army Tradition &amp; Professionalism</h4>
-                                <div class="stat-val" style="font-size:16px">{{ c.army_tradition|round(1) }} AT &bull; {{ (c.army_professionalism * 100)|round(1) }}% Prof</div>
+                                <h4>Army Tradition, Prof &amp; Drill</h4>
+                                <div class="stat-val" style="font-size:15px">{{ c.army_tradition|round(1) }} AT &bull; {{ (c.army_professionalism * 100)|round(1) }}% Prof &bull; {{ c.average_army_drill }}% Drill</div>
                                 <div class="breakdown">
                                     <span>AT Morale: +{{ (c.army_tradition * 0.25)|round(1) }}%</span>
-                                    <span>Prof Siege: +{{ (c.army_professionalism * 20)|round(1) }}%</span>
-                                    <span>Prof Dmg: +{{ (c.army_professionalism * 10)|round(1) }}%</span>
+                                    <span>Prof: +{{ (c.army_professionalism * 10)|round(1) }}% Dmg, +{{ (c.army_professionalism * 20)|round(1) }}% Siege</span>
+                                    {% if c.average_army_drill > 0 %}
+                                    <span>Drill: +{{ (c.average_army_drill * 0.15)|round(1) }}% Dmg, -{{ (c.average_army_drill * 0.25)|round(1) }}% Dmg Rec</span>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -2470,7 +2536,14 @@
                             </div>
                             <div class="stat-box">
                                 <h4>Heavy Ships &amp; Heavy CA</h4>
-                                <div class="stat-val" style="font-size:16px">{{ c.heavy_ships }} heavy {% if c.heavy_ship_ca %}(+{{ (c.heavy_ship_ca * 100)|round(1) }}% CA){% endif %}</div>
+                                <div class="stat-val" style="font-size:16px">{{ c.heavy_ships }} heavy {% if c.heavy_ship_ca %}({{ '+' if c.heavy_ship_ca > 0 else '' }}{{ (c.heavy_ship_ca * 100)|round(1) }}% CA){% endif %}</div>
+                                {% if c.heavy_ship_ca_breakdown %}
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.heavy_ship_ca_breakdown %}
+                                    <span>{{ lbl }}: {{ '+' if dv > 0 else '' }}{{ (dv * 100)|round(1) }}%</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
                             </div>
                             <div class="stat-box">
                                 <h4>Trade Ships (Light)</h4>
@@ -2478,7 +2551,14 @@
                             </div>
                             <div class="stat-box">
                                 <h4>Galley Ships &amp; Galley CA</h4>
-                                <div class="stat-val" style="font-size:16px">{{ c.galley_ships }} galleys {% if c.galley_ca %}(+{{ (c.galley_ca * 100)|round(1) }}% CA){% endif %}</div>
+                                <div class="stat-val" style="font-size:16px">{{ c.galley_ships }} galleys {% if c.galley_ca %}({{ '+' if c.galley_ca > 0 else '' }}{{ (c.galley_ca * 100)|round(1) }}% CA){% endif %}</div>
+                                {% if c.galley_ca_breakdown %}
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.galley_ca_breakdown %}
+                                    <span>{{ lbl }}: {{ '+' if dv > 0 else '' }}{{ (dv * 100)|round(1) }}%</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
                             </div>
                             <div class="stat-box">
                                 <h4>Transports &amp; Total Fleet</h4>
@@ -2514,10 +2594,10 @@
                             <div class="stat-box">
                                 <h4>Goods Produced Modifier</h4>
                                 {% if c.goods_produced is not none %}
-                                <div class="stat-val">+{{ (c.goods_produced * 100)|round(1) }}%</div>
+                                <div class="stat-val">{{ '+' if c.goods_produced > 0 else '' }}{{ (c.goods_produced * 100)|round(1) }}%</div>
                                 <div class="breakdown">
                                     {% for lbl, dv in c.goods_produced_breakdown %}
-                                    <span>{{ lbl }}: +{{ (dv * 100)|round(1) }}%</span>
+                                    <span>{{ lbl }}: {{ '+' if dv > 0 else '' }}{{ (dv * 100)|round(1) }}%</span>
                                     {% endfor %}
                                 </div>
                                 {% else %}<div class="na">N/A</div>{% endif %}
@@ -2635,6 +2715,13 @@
                             <div class="stat-box">
                                 <h4>Colonial Nations Count</h4>
                                 <div class="stat-val">{{ c.colonial_nations_count }}</div>
+                                {% if c.colonial_nation_tags %}
+                                <div class="breakdown">
+                                    {% for tag in c.colonial_nation_tags %}
+                                    <span>{{ c.colonial_nation_names[loop.index0] if c.colonial_nation_names and c.colonial_nation_names|length > loop.index0 else tag }} ({{ tag }})</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
                             </div>
                             <div class="stat-box">
                                 <h4>Controlled Colonial Regions</h4>
@@ -2649,7 +2736,14 @@
                         <div class="stat-grid">
                             <div class="stat-box">
                                 <h4>Diplomatic Reputation</h4>
-                                {% if c.diplo_reputation is not none %}<div class="stat-val">+{{ c.diplo_reputation|round(1) }}</div>{% else %}<div class="na">N/A</div>{% endif %}
+                                {% if c.diplo_reputation is not none %}<div class="stat-val">+{{ c.diplo_reputation|round(2) }}</div>{% else %}<div class="na">N/A</div>{% endif %}
+                                {% if c.diplo_reputation_breakdown %}
+                                <div class="breakdown">
+                                    {% for lbl, dv in c.diplo_reputation_breakdown %}
+                                    <span>{{ lbl }}: {{ '+' if dv > 0 else '' }}{{ dv|round(2) }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
                             </div>
                             <div class="stat-box">
                                 <h4>Diplomatic Capacity (Slots)</h4>
@@ -2760,6 +2854,15 @@
                             <div class="na">No granted estate privileges</div>
                             {% endfor %}
                         </div>
+
+                        {% if c.accepted_cultures %}
+                        <div class="panel-section-title">🌐 Accepted Cultures ({{ c.accepted_culture_count }})</div>
+                        <div class="tag-list" style="margin-bottom:16px">
+                            {% for cult in c.accepted_cultures %}
+                            <div class="tag-item"><span>{{ cult }}</span></div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
 
                         <div class="panel-section-title">🧑‍💼 Employed Advisors</div>
                         <div class="tag-list">

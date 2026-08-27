@@ -182,7 +182,7 @@ def _format_val(val: Any, fmt: str) -> str:
     return str(val)
 
 
-def _process_country_data(cd: CountryData, game_data: GameData | None, most_dev_tag: str) -> dict:
+def _process_country_data(cd: CountryData, game_data: GameData | None, most_dev_tag: str, tag_names: dict[str, str] | None = None) -> dict:
     team_role = TAG_TO_TEAM_ROLE.get(cd.tag)
     team = team_role[0] if team_role else "Other"
     role = team_role[1] if team_role else "NONE"
@@ -211,6 +211,10 @@ def _process_country_data(cd: CountryData, game_data: GameData | None, most_dev_
         "transport_ships":        cd.transport_ships,
         "total_ships":            cd.heavy_ships + cd.trade_ships + cd.galley_ships + cd.transport_ships,
         "colonial_nations_count": cd.colonial_nations_count,
+        "colonial_nation_tags":   cd.colonial_nation_tags,
+        "colonial_nation_names":  [(tag_names or {}).get(t, t) for t in cd.colonial_nation_tags],
+        "subjects":               cd.subjects,
+        "naval_doctrine":         getattr(cd, "naval_doctrine", ""),
         "personal_unions_count":  cd.personal_unions_count,
         "colonial_regions_controlled": cd.colonial_regions_controlled,
         "province_count":         cd.province_count,
@@ -246,6 +250,9 @@ def _process_country_data(cd: CountryData, game_data: GameData | None, most_dev_
         "meritocracy":            cd.meritocracy,
         "absolutism":             cd.absolutism,
         "army_professionalism":   cd.army_professionalism,
+        "average_army_drill":     round(getattr(cd, "average_army_drill", 0.0), 1),
+        "accepted_culture_count": getattr(cd, "accepted_culture_count", 0),
+        "accepted_cultures":      [c.title() for c in getattr(cd, "accepted_cultures", [])],
         "is_defender_of_faith":   cd.is_defender_of_faith,
         "total_income":           cd.estimated_monthly_income,
         "treasury":               cd.treasury,
@@ -257,7 +264,7 @@ def _process_country_data(cd: CountryData, game_data: GameData | None, most_dev_
         if game_data:
             result = fn(cd, game_data)
             d[stat_name] = result.total
-            d[f"{stat_name}_breakdown"] = result.breakdown
+            d[f"{stat_name}_breakdown"] = [(_clean_breakdown_label(lbl), val) for lbl, val in result.breakdown]
         else:
             d[stat_name] = None
             d[f"{stat_name}_breakdown"] = []
@@ -276,6 +283,49 @@ def _process_country_data(cd: CountryData, game_data: GameData | None, most_dev_
     return d
 
 
+def _clean_breakdown_label(lbl: str) -> str:
+    lbl_s = str(lbl)
+    if lbl_s == "humanist_bonus":
+        return "Humanist Ideas (7+ Accepted Cultures)"
+    if lbl_s == "base_mil_tech":
+        return "Base Mil Tech"
+    if lbl_s == "base_dip_tech":
+        return "Base Dip Tech"
+    if lbl_s == "defender_of_faith":
+        return "Defender of the Faith"
+    if lbl_s in ("high_army_professionalism", "army_professionalism"):
+        return "Army Professionalism"
+    if lbl_s in ("regiment_drill_modifier", "army_drill"):
+        return "Army Drill"
+    if lbl_s.startswith("estate_loyalty:"):
+        ename = lbl_s.replace("estate_loyalty:estate_", "").replace("estate_loyalty:", "").replace("_", " ").title()
+        return f"{ename} Estate"
+    if lbl_s.startswith("estate_disloyal:"):
+        ename = lbl_s.replace("estate_disloyal:estate_", "").replace("estate_disloyal:", "").replace("_", " ").title()
+        return f"{ename} Estate (Disloyal)"
+    if lbl_s.startswith("idea:"):
+        return lbl_s.replace("idea:", "").replace("_", " ").title()
+    if lbl_s.startswith("reform:"):
+        return lbl_s.replace("reform:", "").replace("_", " ").title()
+    if lbl_s.startswith("religion:"):
+        return lbl_s.replace("religion:", "").replace("_", " ").title() + " Religion"
+    if lbl_s.startswith("privilege:"):
+        return lbl_s.replace("privilege:", "").replace("_", " ").title()
+    if lbl_s.startswith("policy:"):
+        return lbl_s.replace("policy:", "").replace("_", " ").title()
+    if lbl_s.startswith("advisor:"):
+        return lbl_s.replace("advisor:", "").replace("_", " ").title()
+    if lbl_s.startswith("monument:"):
+        return lbl_s.replace("monument:", "").replace("_", " ").title()
+    if lbl_s.startswith("modifier:"):
+        return lbl_s.replace("modifier:", "").replace("_", " ").title()
+    if lbl_s.startswith("ahead_of_time:"):
+        return f"Ahead in {lbl_s.split(':')[-1].upper()} Tech"
+    if lbl_s.startswith("kolo") and "_bonus" in lbl_s:
+        return "Kolonialimperium Bonus"
+    return lbl_s.replace("_", " ").title()
+
+
 def _format_breakdown_items(stat_key: str, cd_dict: dict | None) -> list[tuple[str, str]]:
     if not cd_dict:
         return []
@@ -290,6 +340,7 @@ def _format_breakdown_items(stat_key: str, cd_dict: dict | None) -> list[tuple[s
         for item in raw_bk:
             if isinstance(item, (list, tuple)) and len(item) >= 2:
                 lbl, val = item[0], item[1]
+                clean_lbl = _clean_breakdown_label(lbl)
                 if isinstance(val, (int, float)):
                     if stat_key in ("discipline", "infantry_ca", "cavalry_ca", "artillery_ca", "galley_ca", "heavy_ship_ca", "production_efficiency", "goods_produced", "trade_efficiency", "fire_damage", "shock_damage", "siege_ability", "dev_cost", "core_creation_cost", "all_power_cost"):
                         val_str = f"+{val*100:.1f}%" if val > 0 else f"{val*100:.1f}%"
@@ -309,7 +360,7 @@ def _format_breakdown_items(stat_key: str, cd_dict: dict | None) -> list[tuple[s
                         val_str = f"{val}"
                 else:
                     val_str = str(val)
-                res.append((str(lbl), val_str))
+                res.append((clean_lbl, val_str))
         if res:
             return res
 
@@ -330,7 +381,14 @@ def _format_breakdown_items(stat_key: str, cd_dict: dict | None) -> list[tuple[s
         return [("Light / Trade Ships", f"{cd_dict.get('trade_ships', 0)} ships")]
     elif stat_key == "colonial_nations_count":
         tags = cd_dict.get("colonial_nation_tags", [])
-        return [("Colonial Subjects", ", ".join(tags) if tags else "None")]
+        names = cd_dict.get("colonial_nation_names", [])
+        if tags:
+            items = []
+            for i, t in enumerate(tags):
+                n = names[i] if i < len(names) else t
+                items.append(f"{n} ({t})" if n != t else t)
+            return [("Colonial Subjects", ", ".join(items))]
+        return [("Colonial Subjects", "None")]
     elif stat_key == "personal_unions_count":
         return [("Personal Unions", f"{cd_dict.get('personal_unions_count', 0)} PUs")]
     elif stat_key == "colonial_regions_controlled":
@@ -511,8 +569,11 @@ def main() -> None:
         province_owner_map = extra["province_owner_map"]
         tag_to_cd = {cd.tag: cd for cd in countries}
         # Build subject -> overlord mapping
+        tag_names = extra.get("tag_names", {})
         subject_to_overlord: dict[str, str] = {}
         for cd in countries:
+            for stag in cd.subjects:
+                subject_to_overlord[stag] = cd.tag
             for cn_tag in cd.colonial_nation_tags:
                 subject_to_overlord[cn_tag] = cd.tag
 
@@ -537,7 +598,8 @@ def main() -> None:
                     if k.startswith("overlord_"):
                         ol_mods[k.replace("overlord_", "")] = v
                 if ol_mods and ol_tag in tag_to_cd:
-                    tag_to_cd[ol_tag].monument_modifiers.append((f"{mon_name}(subject:{owner_tag})", tier, ol_mods))
+                    sub_name = tag_names.get(owner_tag, owner_tag)
+                    tag_to_cd[ol_tag].monument_modifiers.append((f"{mon_name}(subject:{sub_name})", tier, ol_mods))
 
         # ── Post-load: compute fully controlled colonial regions per country ──────────
         tag_province_sets = extra["tag_province_sets"]
@@ -563,12 +625,14 @@ def main() -> None:
                 raw_monuments=raw_monuments,
                 dof_tags=dof_tags_set,
                 province_owner_map=province_owner_map,
+                tag_names=tag_names,
             )
     else:
         print("  No EU4 install dir given - modifier stats will be N/A")
 
     most_dev_tag = most_dev.get("owner", "")
-    processed_countries = [_process_country_data(cd, game_data, most_dev_tag) for cd in countries]
+    tag_names = extra.get("tag_names", {})
+    processed_countries = [_process_country_data(cd, game_data, most_dev_tag, tag_names) for cd in countries]
     country_map = {c["tag"]: c for c in processed_countries}
 
     # Compute team matchups and scoreboard
@@ -659,6 +723,12 @@ def main() -> None:
         if bmp_path and def_path:
             print("Generating GPU WebGL2 interactive map assets (5632x2048)...")
             tag_to_player = {cd.tag: cd.player for cd in countries}
+            subject_to_overlord = {}
+            for cd in countries:
+                for stag in getattr(cd, "subjects", []):
+                    subject_to_overlord[stag] = cd.tag
+                for cntag in getattr(cd, "colonial_nation_tags", []):
+                    subject_to_overlord[cntag] = cd.tag
             prov_info_map = extra.get("prov_info_map", {})
             output_dir = os.path.dirname(script_dir)
             map_data = generate_interactive_map_data(
@@ -669,6 +739,7 @@ def main() -> None:
                 prov_data=prov_info_map,
                 tag_to_player=tag_to_player,
                 wasteland_provinces=wasteland_provinces,
+                subject_to_overlord=subject_to_overlord,
                 output_dir=output_dir,
             )
             if map_data:

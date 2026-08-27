@@ -107,67 +107,80 @@ COASTAL_COLOR = (14, 165, 233)     # Cyan (#0ea5e9)
 NAVAL_SUPPLIES_COLOR = (245, 158, 11) # Amber Gold (#f59e0b)
 INLAND_COLOR = (35, 45, 60)        # Dark Slate (#232d3c)
 
-def dev_to_heatmap_color(dev: float) -> tuple[int, int, int]:
-    """Continuous smooth heatmap interpolation for province development."""
-    if dev <= 0:
-        return (32, 42, 58)
+def dev_heatmap_color(t: float) -> tuple[int, int, int]:
+    """Development gradient: Red (lowest dev, t=0.0) -> Yellow (medium) -> Green (highest dev, t=1.0)."""
+    t = max(0.0, min(1.0, float(t)))
     keyframes = [
-        (1.0,  (24, 45, 82)),    # Deep cool slate blue (Low dev)
-        (6.0,  (14, 116, 185)),  # Ocean Blue
-        (12.0, (14, 165, 233)),  # Vivid Cyan / Teal (Moderate dev)
-        (18.0, (34, 197, 94)),   # Emerald Green
-        (26.0, (234, 179, 8)),   # Radiant Gold / Amber (Prosperous)
-        (36.0, (249, 115, 22)),  # Hot Orange (Metropolis)
-        (48.0, (239, 68, 68)),   # Intense Red (Major Capital)
-        (65.0, (244, 63, 94)),   # Neon Magenta / Rose (Mega-city)
+        (0.00, (239, 68, 68)),   # Lowest Dev: Crimson Red (#ef4444)
+        (0.35, (249, 115, 22)),  # Mid-Low: Orange (#f97316)
+        (0.65, (234, 179, 8)),   # Mid-High: Gold / Lime (#eab308)
+        (1.00, (34, 197, 94)),   # Highest Dev: Emerald Green (#22c55e)
     ]
-    if dev <= keyframes[0][0]:
-        return keyframes[0][1]
-    if dev >= keyframes[-1][0]:
-        return keyframes[-1][1]
     for i in range(len(keyframes) - 1):
         v0, c0 = keyframes[i]
         v1, c1 = keyframes[i + 1]
-        if v0 <= dev <= v1:
-            t = (dev - v0) / (v1 - v0)
-            t_smooth = t * t * (3.0 - 2.0 * t)
-            return (
-                int(c0[0] + (c1[0] - c0[0]) * t_smooth),
-                int(c0[1] + (c1[1] - c0[1]) * t_smooth),
-                int(c0[2] + (c1[2] - c0[2]) * t_smooth),
-            )
+        if v0 <= t <= v1:
+            local_t = (t - v0) / (v1 - v0)
+            smooth_t = local_t * local_t * (3.0 - 2.0 * local_t)
+            r = int(c0[0] + (c1[0] - c0[0]) * smooth_t)
+            g = int(c0[1] + (c1[1] - c0[1]) * smooth_t)
+            b = int(c0[2] + (c1[2] - c0[2]) * smooth_t)
+            return (r, g, b)
     return keyframes[-1][1]
 
-def casualty_to_heatmap_color(casualties: int) -> tuple[int, int, int]:
-    """Continuous smooth heatmap interpolation for battle casualties."""
-    if casualties <= 0:
-        return (30, 41, 59)
+
+def casualties_heatmap_color(t: float) -> tuple[int, int, int]:
+    """Casualties gradient: Slate Grey (lowest, t=0.0) -> Amber/Orange -> Deep Crimson (highest, t=1.0)."""
+    t = max(0.0, min(1.0, float(t)))
     keyframes = [
-        (1,       (30, 58, 138)),   # Navy blue
-        (2500,    (14, 116, 185)),  # Blue
-        (7500,    (16, 185, 129)),  # Emerald Green
-        (20000,   (234, 179, 8)),   # Gold
-        (50000,   (249, 115, 22)),  # Orange
-        (100000,  (239, 68, 68)),   # Crimson Red
-        (200000,  (225, 29, 72)),   # Rose / Magenta
-        (350000,  (217, 70, 239)),  # Violet Bloodbath
+        (0.00, (75, 85, 99)),    # Low / Baseline: Slate Grey (#4b5563)
+        (0.30, (217, 119, 6)),   # Moderate: Amber (#d97706)
+        (0.65, (239, 68, 68)),   # Heavy: Vivid Red (#ef4444)
+        (1.00, (153, 27, 27)),   # Extreme: Deep Crimson (#991b1b)
     ]
-    if casualties <= keyframes[0][0]:
-        return keyframes[0][1]
-    if casualties >= keyframes[-1][0]:
-        return keyframes[-1][1]
     for i in range(len(keyframes) - 1):
         v0, c0 = keyframes[i]
         v1, c1 = keyframes[i + 1]
-        if v0 <= casualties <= v1:
-            t = (casualties - v0) / (v1 - v0)
-            t_smooth = t * t * (3.0 - 2.0 * t)
-            return (
-                int(c0[0] + (c1[0] - c0[0]) * t_smooth),
-                int(c0[1] + (c1[1] - c0[1]) * t_smooth),
-                int(c0[2] + (c1[2] - c0[2]) * t_smooth),
-            )
+        if v0 <= t <= v1:
+            local_t = (t - v0) / (v1 - v0)
+            smooth_t = local_t * local_t * (3.0 - 2.0 * local_t)
+            r = int(c0[0] + (c1[0] - c0[0]) * smooth_t)
+            g = int(c0[1] + (c1[1] - c0[1]) * smooth_t)
+            b = int(c0[2] + (c1[2] - c0[2]) * smooth_t)
+            return (r, g, b)
     return keyframes[-1][1]
+
+
+def devastation_heatmap_color(t: float) -> tuple[int, int, int]:
+    """Devastation gradient: Grey (0%) -> Orange (30%) -> Vivid Red (70%) -> Deep Crimson (100%)."""
+    t = max(0.0, min(1.0, float(t)))
+    keyframes = [
+        (0.00, (75, 85, 99)),    # 0% Devastation: Slate Grey (#4b5563)
+        (0.30, (249, 115, 22)),  # 30% Devastation: Burning Orange (#f97316)
+        (0.70, (239, 68, 68)),   # 70% Devastation: Fiery Red (#ef4444)
+        (1.00, (153, 27, 27)),   # 100% Devastation: Ruined Crimson (#991b1b)
+    ]
+    for i in range(len(keyframes) - 1):
+        v0, c0 = keyframes[i]
+        v1, c1 = keyframes[i + 1]
+        if v0 <= t <= v1:
+            local_t = (t - v0) / (v1 - v0)
+            smooth_t = local_t * local_t * (3.0 - 2.0 * local_t)
+            r = int(c0[0] + (c1[0] - c0[0]) * smooth_t)
+            g = int(c0[1] + (c1[1] - c0[1]) * smooth_t)
+            b = int(c0[2] + (c1[2] - c0[2]) * smooth_t)
+            return (r, g, b)
+    return keyframes[-1][1]
+
+
+def prosperity_color(t: float) -> tuple[int, int, int]:
+    """Prosperity color: Lush Emerald Green (#22c55e) with intensity modulation."""
+    t = max(0.0, min(1.0, float(t)))
+    return (
+        int(16 + (34 - 16) * t),
+        int(160 + (197 - 160) * t),
+        int(80 + (94 - 80) * t),
+    )
 
 
 def generate_interactive_map_data(
@@ -178,6 +191,7 @@ def generate_interactive_map_data(
     prov_data: dict[int, dict[str, Any]],
     tag_to_player: dict[str, str],
     wasteland_provinces: set[int] | None = None,
+    subject_to_overlord: dict[str, str] | None = None,
     output_dir: str | None = None,
 ) -> dict[str, Any]:
     """
@@ -185,6 +199,8 @@ def generate_interactive_map_data(
     """
     if wasteland_provinces is None:
         wasteland_provinces = set()
+    if subject_to_overlord is None:
+        subject_to_overlord = {}
 
     rgb_to_pid: dict[tuple[int, int, int], int] = {}
     max_pid = 1
@@ -215,8 +231,8 @@ def generate_interactive_map_data(
     # Generate provinces_id RGBA buffer
     # R: pid & 0xFF
     # G: (pid >> 8) & 0xFF
-    # B: 255 if is_sea else 0
-    # A: 128 if is_wasteland else 255
+    # B: 0
+    # A: 255 (Always 255 to prevent HTML5 canvas premultiplied alpha color corruption)
     total_pixels = width * height
     id_bytes = bytearray(total_pixels * 4)
 
@@ -225,15 +241,12 @@ def generate_interactive_map_data(
         g = rgb_data[i * 3 + 1]
         b = rgb_data[i * 3 + 2]
         pid = rgb_to_pid.get((r, g, b), 0)
-        
-        is_sea = pid in sea_provinces
-        is_waste = pid in wasteland_provinces
 
         idx = i * 4
         id_bytes[idx] = pid & 0xFF
         id_bytes[idx + 1] = (pid >> 8) & 0xFF
-        id_bytes[idx + 2] = 255 if is_sea else 0
-        id_bytes[idx + 3] = 128 if is_waste else 255
+        id_bytes[idx + 2] = 0
+        id_bytes[idx + 3] = 255
 
     id_img = Image.frombytes("RGBA", (width, height), bytes(id_bytes))
 
@@ -245,14 +258,33 @@ def generate_interactive_map_data(
         except Exception:
             pass
 
-    # Encode to base64 Data URL for zero-CORS direct local loading
+    # Encode full and split West/East halves (2816x2048 each) to guarantee 100% full-resolution on all mobile devices
+    half_w = width // 2
+    west_img = id_img.crop((0, 0, half_w, height))
+    east_img = id_img.crop((half_w, 0, width, height))
+
     buf = io.BytesIO()
     id_img.save(buf, format="PNG", optimize=True)
     prov_id_b64 = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
 
+    buf_w = io.BytesIO()
+    west_img.save(buf_w, format="PNG", optimize=True)
+    prov_id_west_b64 = "data:image/png;base64," + base64.b64encode(buf_w.getvalue()).decode("ascii")
+
+    buf_e = io.BytesIO()
+    east_img.save(buf_e, format="PNG", optimize=True)
+    prov_id_east_b64 = "data:image/png;base64," + base64.b64encode(buf_e.getvalue()).decode("ascii")
+
+    # Dynamic dev and casualty min/max normalization across active land provinces
+    valid_devs = [pinfo.get("dev", 0) for pid, pinfo in prov_data.items() if pid not in sea_provinces and pid not in wasteland_provinces and pinfo.get("dev", 0) > 0]
+    min_dev = min(valid_devs) if valid_devs else 1.0
+    max_dev = max(valid_devs) if valid_devs else 30.0
+
+    valid_cas = [pinfo.get("casualties", 0) for pid, pinfo in prov_data.items() if pid not in sea_provinces and pid not in wasteland_provinces and pinfo.get("casualties", 0) > 0]
+    min_cas = min(valid_cas) if valid_cas else 1
+    max_cas = max(valid_cas) if valid_cas else 100000
+
     # Build multi-mode color palette texture (width = 2048, height = 6 * rows_per_mode)
-    # Using a 2048-wide grid guarantees 100% compatibility across all mobile & desktop GPUs
-    # (many mobile GPUs have MAX_TEXTURE_SIZE = 4096 or 2048)
     pal_w = 2048
     rows_per_mode = (max_pid + pal_w) // pal_w
     pal_h = 6 * rows_per_mode
@@ -272,9 +304,14 @@ def generate_interactive_map_data(
         player = tag_to_player.get(owner, "")
         team = pinfo.get("team", "")
 
-        if not is_sea:
+        if is_waste:
             client_provinces[pid] = {
-                "name": pinfo.get("name", f"Province {pid}"),
+                "name": pinfo.get("name", f"Wasteland #{pid}"),
+                "waste": True,
+            }
+        elif not is_sea:
+            client_provinces[pid] = {
+                "name": pinfo.get("name", f"Province #{pid}"),
                 "owner": owner,
                 "player": player,
                 "dev": pinfo.get("dev", 0),
@@ -285,17 +322,29 @@ def generate_interactive_map_data(
                 "cas": pinfo.get("casualties", 0),
                 "bat": pinfo.get("battles", 0),
                 "top_b": pinfo.get("top_battle", ""),
+                "devastation": pinfo.get("devastation", 0.0),
+                "prosperity": pinfo.get("prosperity", 0.0),
+                "area": pinfo.get("area", ""),
             }
 
         # Calculate colors for all 6 modes
         if is_sea:
-            c_players = c_pol = c_teams = c_naval = c_dev = c_cas = SEA_COLOR
+            c_players = c_pol = c_teams = c_devastation = c_dev = c_cas = SEA_COLOR
         elif is_waste:
-            c_players = c_pol = c_teams = c_naval = c_dev = c_cas = WASTELAND_COLOR
+            c_players = c_pol = c_teams = c_devastation = c_dev = c_cas = WASTELAND_COLOR
         else:
-            # 1. Players
+            # 1. Players (includes subjects with a lighter tint of the overlord)
             if owner in COUNTRY_COLORS:
                 c_players = COUNTRY_COLORS[owner]
+            elif owner in subject_to_overlord and subject_to_overlord[owner] in COUNTRY_COLORS:
+                ol_tag = subject_to_overlord[owner]
+                ol_rgb = COUNTRY_COLORS[ol_tag]
+                # Lighter pastel tint of the overlord (60% overlord + 40% white)
+                c_players = (
+                    int(ol_rgb[0] * 0.60 + 255 * 0.40),
+                    int(ol_rgb[1] * 0.60 + 255 * 0.40),
+                    int(ol_rgb[2] * 0.60 + 255 * 0.40),
+                )
             else:
                 c_players = UNCOLONIZED_COLOR
 
@@ -310,24 +359,32 @@ def generate_interactive_map_data(
             else:
                 c_teams = UNCOLONIZED_COLOR
 
-            # 4. Naval
-            if pid in coastal_provinces:
-                if pinfo.get("tg") == "naval_supplies":
-                    c_naval = NAVAL_SUPPLIES_COLOR
-                elif pinfo.get("has_shipyard"):
-                    c_naval = (56, 189, 248)
-                else:
-                    c_naval = COASTAL_COLOR
+            # 4. Devastation & Prosperity Mode
+            p_deva = pinfo.get("devastation", 0.0)
+            p_pros = pinfo.get("prosperity", 0.0)
+            if p_deva > 0.0:
+                t_deva = min(1.0, max(0.0, p_deva / 100.0))
+                c_devastation = devastation_heatmap_color(t_deva)
+            elif p_pros > 0.0:
+                t_pros = min(1.0, max(0.0, p_pros / 100.0))
+                c_devastation = prosperity_color(t_pros)
             else:
-                c_naval = INLAND_COLOR
+                c_devastation = (55, 65, 81)  # Neutral #374151 Slate Grey
 
-            # 5. Dev
-            c_dev = dev_to_heatmap_color(pinfo.get("dev", 0))
+            # 5. Development Heatmap (Red = Lowest Dev -> Yellow -> Green = Highest Dev)
+            pdev = pinfo.get("dev", 0)
+            t_dev = (pdev - min_dev) / max(max_dev - min_dev, 1.0)
+            c_dev = dev_heatmap_color(t_dev)
 
-            # 6. Casualties
-            c_cas = casualty_to_heatmap_color(pinfo.get("casualties", 0))
+            # 6. Casualties Heatmap (Slate Grey = None/Lowest -> Amber -> Deep Crimson = Highest)
+            pcas = pinfo.get("casualties", 0)
+            if pcas <= 0:
+                c_cas = (55, 65, 81)  # Slate Grey
+            else:
+                t_cas = (pcas - min_cas) / max(max_cas - min_cas, 1)
+                c_cas = casualties_heatmap_color(t_cas)
 
-        mode_colors_list = [c_players, c_pol, c_teams, c_naval, c_dev, c_cas]
+        mode_colors_list = [c_players, c_pol, c_teams, c_devastation, c_dev, c_cas]
         for mode_idx, col_rgb in enumerate(mode_colors_list):
             row = mode_idx * rows_per_mode + row_in_mode
             idx = (row * pal_w + col) * 4
@@ -344,11 +401,18 @@ def generate_interactive_map_data(
     return {
         "width": width,
         "height": height,
+        "half_width": half_w,
         "palette_width": pal_w,
         "palette_height": pal_h,
         "rows_per_mode": rows_per_mode,
         "provinces_id_b64": prov_id_b64,
+        "provinces_id_west_b64": prov_id_west_b64,
+        "provinces_id_east_b64": prov_id_east_b64,
         "palette_b64": palette_b64,
         "provinces_json": json.dumps(client_provinces),
         "total_provinces": len(client_provinces),
+        "min_dev": round(min_dev, 1),
+        "max_dev": round(max_dev, 1),
+        "min_cas": min_cas,
+        "max_cas": max_cas,
     }
