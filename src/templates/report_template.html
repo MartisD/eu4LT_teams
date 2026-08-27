@@ -1009,6 +1009,444 @@
             border-radius: 12px;
         }
 
+        /* ── Comparison Statistics Table Modal ── */
+        .btn-stats-table {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(99, 102, 241, 0.25) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.45);
+            color: #93c5fd;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 9px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.2);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-stats-table:hover {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.35) 0%, rgba(99, 102, 241, 0.4) 100%);
+            color: #ffffff;
+            border-color: #60a5fa;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35);
+        }
+        .btn-wars-table {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(245, 158, 11, 0.25) 100%);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+            box-shadow: 0 4px 14px rgba(239, 68, 68, 0.2);
+        }
+        .btn-wars-table:hover {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.35) 0%, rgba(245, 158, 11, 0.4) 100%);
+            color: #ffffff;
+            border-color: #f87171;
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35);
+        }
+
+        .stats-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(3, 7, 18, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        .stats-modal-window {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            width: 98.5vw;
+            max-width: 98.5vw;
+            max-height: 95vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+            overflow: hidden;
+            animation: modalPopIn 0.2s ease forwards;
+        }
+        @keyframes modalPopIn {
+            from { opacity: 0; transform: scale(0.97); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .stats-modal-header {
+            padding: 14px 20px;
+            background: rgba(31, 41, 55, 0.6);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .stats-modal-title h3 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 19px;
+            font-weight: 800;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .stats-modal-title p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .stats-modal-tabs {
+            display: flex;
+            gap: 6px;
+            background: var(--bg-base);
+            padding: 4px;
+            border-radius: 24px;
+            border: 1px solid var(--border-color);
+        }
+        .stats-modal-tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 6px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .stats-modal-tab-btn:hover {
+            color: var(--text-main);
+        }
+        .stats-modal-tab-btn.active {
+            background: #2563eb;
+            color: #ffffff;
+            box-shadow: 0 2px 10px rgba(37, 99, 235, 0.4);
+        }
+
+        .stats-modal-close {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+        }
+        .stats-modal-close:hover {
+            background: #ef4444;
+            color: #ffffff;
+            border-color: #ef4444;
+        }
+
+        .stats-modal-body {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: auto;
+            padding: 0;
+        }
+
+        .stats-table-pane {
+            display: none;
+            width: 100%;
+        }
+        .stats-table-pane.active {
+            display: block;
+        }
+
+        .stats-ledger-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            text-align: left;
+            font-size: 12px;
+        }
+        .stats-ledger-table th {
+            background: #111827;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            padding: 9px 7px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+            transition: color 0.15s ease;
+        }
+        .stats-ledger-table th:hover {
+            color: #60a5fa;
+        }
+        .stats-ledger-table th.sorted-asc::after {
+            content: " ▲";
+            color: #60a5fa;
+        }
+        .stats-ledger-table th.sorted-desc::after {
+            content: " ▼";
+            color: #60a5fa;
+        }
+
+        .stats-ledger-table td {
+            padding: 8px 7px;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-main);
+            white-space: nowrap;
+        }
+        .stats-ledger-table td[title] {
+            cursor: help;
+        }
+        .stats-ledger-table tbody tr {
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .stats-ledger-table tbody tr:hover {
+            background: rgba(59, 130, 246, 0.08);
+        }
+        .stats-ledger-table .rank-num {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            color: var(--text-dim);
+            font-size: 12.5px;
+            width: 26px;
+            text-align: center;
+        }
+        .stats-ledger-table .country-cell {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .inst-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 22px;
+            height: 22px;
+            padding: 0 6px;
+            border-radius: 11px;
+            background: rgba(251, 191, 36, 0.15);
+            border: 1px solid rgba(251, 191, 36, 0.4);
+            color: #fbbf24;
+            font-weight: 800;
+            font-size: 11px;
+            cursor: help;
+        }
+        .inst-badge.embraced-all {
+            background: rgba(52, 211, 153, 0.15);
+            border-color: rgba(52, 211, 153, 0.4);
+            color: #34d399;
+        }
+
+        .battle-filter-banner {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(99, 102, 241, 0.22));
+            border: 1px solid rgba(96, 165, 250, 0.4);
+            border-radius: var(--radius-md);
+            margin-bottom: 14px;
+            color: #93c5fd;
+            font-size: 13px;
+            gap: 12px;
+            animation: modalPopIn 0.15s ease forwards;
+        }
+        .btn-clear-filter {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+            font-size: 11.5px;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-clear-filter:hover {
+            background: rgba(239, 68, 68, 0.35);
+            color: #ffffff;
+            border-color: #f87171;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+        }
+        .btn-view-battles {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: #60a5fa;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-view-battles:hover {
+            background: rgba(59, 130, 246, 0.3);
+            color: #ffffff;
+            border-color: #93c5fd;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.35);
+        }
+        .stats-ledger-table tbody tr.war-row:hover {
+            background: rgba(239, 68, 68, 0.08);
+        }
+
+        /* ── Table Pagination Footer ── */
+        .table-pagination-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px;
+            background: rgba(17, 24, 39, 0.95);
+            border-top: 1px solid var(--border-color);
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .pagination-info {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .pagination-info b {
+            color: var(--text-main);
+        }
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .page-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 11.5px;
+            font-weight: 600;
+            padding: 4px 9px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .page-btn:hover:not(:disabled) {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            border-color: #3b82f6;
+        }
+        .page-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+        .page-btn.active {
+            background: #2563eb;
+            color: #ffffff;
+            border-color: #2563eb;
+            font-weight: 700;
+        }
+        .page-ellipsis {
+            color: var(--text-dim);
+            padding: 0 4px;
+            font-size: 12px;
+        }
+
+        /* ── Custom Rich Floating Tooltip ── */
+        .rich-floating-tooltip {
+            position: fixed;
+            z-index: 100002;
+            pointer-events: none;
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(96, 165, 250, 0.35);
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(59, 130, 246, 0.25);
+            padding: 10px 14px;
+            color: #f3f4f6;
+            font-size: 12px;
+            max-width: 380px;
+            line-height: 1.45;
+            transition: opacity 0.08s ease;
+            display: none;
+        }
+        .rich-floating-tooltip .tt-header {
+            font-weight: 800;
+            font-size: 12.5px;
+            color: #93c5fd;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 5px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .rich-floating-tooltip .tt-body {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .rich-floating-tooltip .tt-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            font-size: 11.5px;
+        }
+        .rich-floating-tooltip .tt-lbl {
+            color: #cbd5e1;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .rich-floating-tooltip .tt-val {
+            font-weight: 700;
+            font-feature-settings: "tnum";
+            white-space: nowrap;
+        }
+        .rich-floating-tooltip .tt-val-pos {
+            color: #34d399;
+        }
+        .rich-floating-tooltip .tt-val-neg {
+            color: #f87171;
+        }
+        .rich-floating-tooltip .tt-val-num {
+            color: #60a5fa;
+        }
+        .rich-floating-tooltip .tt-section-lbl {
+            font-weight: 700;
+            color: #fbbf24;
+            font-size: 11px;
+            margin-top: 4px;
+            border-bottom: 1px dashed rgba(251, 191, 36, 0.2);
+            padding-bottom: 2px;
+        }
+        .rich-floating-tooltip .tt-bullet {
+            color: #e2e8f0;
+            font-size: 11px;
+            padding-left: 4px;
+        }
+
         /* ── Most Dev Province Card ── */
         .footer-card {
             background: var(--bg-surface);
@@ -1290,12 +1728,422 @@
             }
         }
 
+        // Statistics Table Modal Control Functions
+        function openStatsTableModal() {
+            const modal = document.getElementById('statsTableModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        function closeStatsTableModal(e) {
+            if (e && e.target && e.target.closest && e.target.closest('.stats-modal-window') && !e.target.closest('.stats-modal-close')) {
+                return;
+            }
+            const modal = document.getElementById('statsTableModal');
+            if (modal) {
+                modal.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+        }
+
+        function switchStatsModalTab(tabKey, btn) {
+            const parent = document.getElementById('statsTableModal');
+            if (!parent) return;
+            parent.querySelectorAll('.stats-modal-tab-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+
+            parent.querySelectorAll('.stats-table-pane').forEach(p => p.classList.remove('active'));
+            const pane = parent.querySelector('#tab-' + (tabKey === 'economy' ? 'country-economy' : tabKey));
+            if (pane) pane.classList.add('active');
+        }
+
+        // Wars & Battles Modal Control Functions
+        function openWarsTableModal() {
+            const modal = document.getElementById('warsBattlesModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        function closeWarsTableModal(e) {
+            if (e && e.target && e.target.closest && e.target.closest('.stats-modal-window') && !e.target.closest('.stats-modal-close')) {
+                return;
+            }
+            const modal = document.getElementById('warsBattlesModal');
+            if (modal) {
+                modal.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+        }
+
+        const tablePaginationState = {};
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        function initTablePagination(tableId, pageSize) {
+            pageSize = pageSize || 20;
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            const allRows = Array.from(tbody.children);
+
+            tablePaginationState[tableId] = {
+                currentPage: 1,
+                pageSize: pageSize,
+                allRows: allRows,
+                filteredRows: allRows.slice(),
+                currentFilterWarId: null
+            };
+            renderTablePage(tableId);
+        }
+
+        function renderTablePage(tableId) {
+            const state = tablePaginationState[tableId];
+            if (!state) return;
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+
+            const total = state.filteredRows.length;
+            const totalPages = Math.max(1, Math.ceil(total / state.pageSize));
+            if (state.currentPage > totalPages) state.currentPage = totalPages;
+            if (state.currentPage < 1) state.currentPage = 1;
+
+            const start = (state.currentPage - 1) * state.pageSize;
+            const end = Math.min(start + state.pageSize, total);
+
+            state.allRows.forEach(r => { r.style.display = 'none'; });
+            for (let i = start; i < end; i++) {
+                const row = state.filteredRows[i];
+                row.style.display = '';
+                const rank = row.querySelector('.rank-num');
+                if (rank) {
+                    rank.textContent = i + 1;
+                }
+            }
+
+            let footer = table.parentElement.querySelector('.table-pagination-footer');
+            if (!footer) {
+                footer = document.createElement('div');
+                footer.className = 'table-pagination-footer';
+                table.parentElement.appendChild(footer);
+            }
+
+            if (total <= state.pageSize && state.pageSize === 20) {
+                footer.style.display = 'none';
+                return;
+            }
+            footer.style.display = 'flex';
+
+            footer.innerHTML = `
+                <div class="pagination-info">
+                    Showing <b>${total === 0 ? 0 : start + 1}–${end}</b> of <b>${total}</b> entries
+                </div>
+                <div class="pagination-controls">
+                    <button type="button" class="page-btn" onclick="setTablePage('${tableId}', 1)" ${state.currentPage === 1 ? 'disabled' : ''}>«</button>
+                    <button type="button" class="page-btn" onclick="setTablePage('${tableId}', ${state.currentPage - 1})" ${state.currentPage === 1 ? 'disabled' : ''}>‹ Prev</button>
+                    <div class="page-numbers" style="display:flex; gap:3px; align-items:center;">
+                        ${generatePageNumbers(tableId, state.currentPage, totalPages)}
+                    </div>
+                    <button type="button" class="page-btn" onclick="setTablePage('${tableId}', ${state.currentPage + 1})" ${state.currentPage === totalPages ? 'disabled' : ''}>Next ›</button>
+                    <button type="button" class="page-btn" onclick="setTablePage('${tableId}', ${totalPages})" ${state.currentPage === totalPages ? 'disabled' : ''}>»</button>
+                </div>
+            `;
+        }
+
+        function generatePageNumbers(tableId, current, total) {
+            if (total <= 1) return '';
+            let pages = [];
+            if (total <= 7) {
+                for (let i = 1; i <= total; i++) pages.push(i);
+            } else {
+                pages.push(1);
+                if (current > 3) pages.push('...');
+                let start = Math.max(2, current - 1);
+                let end = Math.min(total - 1, current + 1);
+                for (let i = start; i <= end; i++) pages.push(i);
+                if (current < total - 2) pages.push('...');
+                pages.push(total);
+            }
+            return pages.map(p => {
+                if (p === '...') return '<span class="page-ellipsis">…</span>';
+                return `<button type="button" class="page-btn ${p === current ? 'active' : ''}" onclick="setTablePage('${tableId}', ${p})">${p}</button>`;
+            }).join('');
+        }
+
+        function setTablePage(tableId, page) {
+            const state = tablePaginationState[tableId];
+            if (!state) return;
+            state.currentPage = page;
+            renderTablePage(tableId);
+        }
+
+        function switchWarsModalTab(tabKey, btn) {
+            const parent = document.getElementById('warsBattlesModal');
+            if (!parent) return;
+            parent.querySelectorAll('.stats-modal-tab-btn').forEach(b => b.classList.remove('active'));
+            if (btn) {
+                btn.classList.add('active');
+            } else {
+                const targetBtn = Array.from(parent.querySelectorAll('.stats-modal-tab-btn')).find(b => b.getAttribute('onclick')?.includes(`'${tabKey}'`));
+                if (targetBtn) targetBtn.classList.add('active');
+            }
+
+            parent.querySelectorAll('.stats-table-pane').forEach(p => p.classList.remove('active'));
+            const pane = parent.querySelector('#tab-' + tabKey);
+            if (pane) pane.classList.add('active');
+        }
+
+        let currentBattleFilterWarId = null;
+
+        function showBattlesForWar(warId, warName) {
+            currentBattleFilterWarId = warId;
+            openWarsTableModal();
+            switchWarsModalTab('battles');
+            applyBattleFilter(warId, warName);
+        }
+
+        function applyBattleFilter(warId, warName) {
+            const banner = document.getElementById('battle-filter-banner');
+            const state = tablePaginationState['table-battles'];
+            currentBattleFilterWarId = warId || null;
+
+            if (state) {
+                state.currentFilterWarId = warId || null;
+                if (warId) {
+                    state.filteredRows = state.allRows.filter(r => r.getAttribute('data-war-id') === warId);
+                } else {
+                    state.filteredRows = state.allRows.slice();
+                }
+                state.currentPage = 1;
+                renderTablePage('table-battles');
+            }
+
+            if (banner) {
+                if (warId) {
+                    const count = state ? state.filteredRows.length : 0;
+                    banner.style.display = 'flex';
+                    banner.innerHTML = `<span>⚔️ Filtered to <b>${count}</b> battles from war: <b>${escapeHtml(warName || 'Selected War')}</b></span> <button type="button" class="btn-clear-filter" onclick="clearBattleFilter()">✖ Show All Battles</button>`;
+                } else {
+                    banner.style.display = 'none';
+                }
+            }
+        }
+
+        function clearBattleFilter() {
+            currentBattleFilterWarId = null;
+            applyBattleFilter(null, null);
+        }
+
+        function sortStatsTable(tableId, colIndex, isNumeric) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            const th = table.querySelectorAll('th')[colIndex];
+            if (!th) return;
+            const isDesc = !th.classList.contains('sorted-desc');
+
+            table.querySelectorAll('th').forEach(h => {
+                h.classList.remove('sorted-asc', 'sorted-desc');
+            });
+            th.classList.add(isDesc ? 'sorted-desc' : 'sorted-asc');
+
+            const state = tablePaginationState[tableId];
+            const rows = state ? state.allRows : Array.from(tbody.querySelectorAll('tr'));
+
+            rows.sort((a, b) => {
+                const cellA = a.children[colIndex];
+                const cellB = b.children[colIndex];
+                let valA = cellA.getAttribute('data-val') !== null ? cellA.getAttribute('data-val') : cellA.innerText.trim();
+                let valB = cellB.getAttribute('data-val') !== null ? cellB.getAttribute('data-val') : cellB.innerText.trim();
+
+                if (isNumeric) {
+                    valA = parseFloat(valA) || 0;
+                    valB = parseFloat(valB) || 0;
+                    return isDesc ? valB - valA : valA - valB;
+                } else {
+                    return isDesc ? valB.localeCompare(valA) : valA.localeCompare(valB);
+                }
+            });
+
+            rows.forEach(r => tbody.appendChild(r));
+
+            if (state) {
+                if (state.currentFilterWarId) {
+                    state.filteredRows = rows.filter(r => r.getAttribute('data-war-id') === state.currentFilterWarId);
+                } else {
+                    state.filteredRows = rows.slice();
+                }
+                state.currentPage = 1;
+                renderTablePage(tableId);
+            } else {
+                rows.forEach((row, idx) => {
+                    const rankCell = row.querySelector('.rank-num');
+                    if (rankCell) rankCell.textContent = idx + 1;
+                });
+            }
+        }
+
+        // Custom Rich Floating Tooltip System
+        function initRichTooltips() {
+            let tooltipEl = document.getElementById('rich-floating-tooltip');
+            if (!tooltipEl) {
+                tooltipEl = document.createElement('div');
+                tooltipEl.id = 'rich-floating-tooltip';
+                tooltipEl.className = 'rich-floating-tooltip';
+                document.body.appendChild(tooltipEl);
+            }
+
+            function sanitizeTooltips() {
+                document.querySelectorAll('[title]').forEach(el => {
+                    if (el.tagName.toLowerCase() === 'canvas' || el.id === 'eu4-map-canvas' || el.closest('.map-viewport-wrapper')) return;
+                    const t = el.getAttribute('title');
+                    if (t && t.trim()) {
+                        if (!el.getAttribute('data-tooltip')) {
+                            if (el.tagName.toLowerCase() === 'tr' && el.querySelector('[title], [data-tooltip]')) {
+                                el.removeAttribute('title');
+                                return;
+                            }
+                            el.setAttribute('data-tooltip', t);
+                        }
+                        el.removeAttribute('title');
+                    }
+                });
+            }
+
+            sanitizeTooltips();
+
+            function formatTooltipContent(rawText, target) {
+                if (!rawText) return '';
+                const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                if (lines.length === 0) return '';
+
+                // If there is only 1 line, check if it contains additional info or is redundant
+                if (lines.length === 1) {
+                    const singleLine = lines[0].trim();
+                    const targetText = target ? target.innerText.trim() : '';
+                    if (targetText && (singleLine === targetText || singleLine.endsWith(': ' + targetText) || singleLine.endsWith(' ' + targetText))) {
+                        return '';
+                    }
+                    if (target && target.tagName.toLowerCase() === 'td') {
+                        // Suppress single-line table cell tooltips that lack breakdown info
+                        return '';
+                    }
+                }
+
+                let html = `<div class="tt-header"><span>📊</span><span>${escapeHtml(lines[0])}</span></div>`;
+                if (lines.length > 1) {
+                    html += '<div class="tt-body">';
+                    for (let i = 1; i < lines.length; i++) {
+                        const line = lines[i];
+                        if (line.startsWith('•') || line.startsWith('-')) {
+                            html += `<div class="tt-bullet">${escapeHtml(line)}</div>`;
+                        } else if (line.includes(':')) {
+                            const idx = line.indexOf(':');
+                            const k = line.substring(0, idx).trim();
+                            const v = line.substring(idx + 1).trim();
+                            let vClass = 'tt-val-num';
+                            if (v.startsWith('+')) vClass = 'tt-val-pos';
+                            else if (v.startsWith('-')) vClass = 'tt-val-neg';
+                            else if (v.toLowerCase().includes('yes') || v.toLowerCase().includes('won') || v.toLowerCase().includes('attacker')) vClass = 'tt-val-pos';
+                            else if (v.toLowerCase().includes('no') || v.toLowerCase().includes('lost') || v.toLowerCase().includes('defender')) vClass = 'tt-val-neg';
+
+                            html += `<div class="tt-row"><span class="tt-lbl">${escapeHtml(k)}</span><span class="tt-val ${vClass}">${escapeHtml(v)}</span></div>`;
+                        } else {
+                            html += `<div class="tt-section-lbl">${escapeHtml(line)}</div>`;
+                        }
+                    }
+                    html += '</div>';
+                }
+                return html;
+            }
+
+            function escapeHtml(text) {
+                return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+            }
+
+            let activeTarget = null;
+
+            document.addEventListener('mouseover', function(e) {
+                const target = e.target.closest('[data-tooltip]');
+                if (!target || target.closest('.map-viewport-wrapper')) return;
+                const rawText = target.getAttribute('data-tooltip');
+                if (!rawText || !rawText.trim()) return;
+
+                const content = formatTooltipContent(rawText, target);
+                if (!content) {
+                    activeTarget = null;
+                    tooltipEl.style.display = 'none';
+                    return;
+                }
+
+                activeTarget = target;
+                tooltipEl.innerHTML = content;
+                tooltipEl.style.display = 'block';
+                tooltipEl.style.opacity = '1';
+                positionTooltip(e);
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (activeTarget && tooltipEl.style.display === 'block') {
+                    positionTooltip(e);
+                }
+            });
+
+            document.addEventListener('mouseout', function(e) {
+                const target = e.target.closest('[data-tooltip]');
+                if (target && target === activeTarget) {
+                    activeTarget = null;
+                    tooltipEl.style.display = 'none';
+                    tooltipEl.style.opacity = '0';
+                }
+            });
+
+            function positionTooltip(e) {
+                const pad = 14;
+                const rect = tooltipEl.getBoundingClientRect();
+                let x = e.clientX + pad;
+                let y = e.clientY + pad;
+
+                if (x + rect.width > window.innerWidth - 10) {
+                    x = e.clientX - rect.width - pad;
+                }
+                if (y + rect.height > window.innerHeight - 10) {
+                    y = e.clientY - rect.height - pad;
+                }
+                if (x < 10) x = 10;
+                if (y < 10) y = 10;
+
+                tooltipEl.style.left = x + 'px';
+                tooltipEl.style.top = y + 'px';
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             window.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') closeCountryDrawer();
+                if (e.key === 'Escape') {
+                    closeCountryDrawer();
+                    closeStatsTableModal();
+                    closeWarsTableModal();
+                }
             });
 
             initEU4Map();
+            initRichTooltips();
+            initTablePagination('table-wars', 20);
+            initTablePagination('table-battles', 20);
+            initTablePagination('table-country-economy', 20);
+            initTablePagination('table-military', 20);
+            initTablePagination('table-navy', 20);
         });
 
         function initEU4Map() {
@@ -1768,7 +2616,7 @@
                                 <span style="color:#4ade80; font-weight:700;">Prosperous State (Green)</span>
                             </div>
                             <span style="color:var(--text-muted); font-weight:600; margin-left:8px;">0% Devastation (Grey)</span>
-                            <div style="width:140px; height:10px; border-radius:3px; background: linear-gradient(to right, #4b5563, #f97316, #ef4444, #991b1b); border: 1px solid rgba(255,255,255,0.2);"></div>
+                            <div style="width:140px; height:10px; border-radius:3px; background: linear-gradient(to right, #2a3444, #ef4444); border: 1px solid rgba(255,255,255,0.2);"></div>
                             <span style="color:#f87171; font-weight:600;">100% Devastated (Red)</span>
                         </div>
                     `;
@@ -1784,7 +2632,7 @@
                     legend.innerHTML = `
                         <div class="map-legend-item" style="gap:10px;">
                             <span style="color:#94a3b8; font-weight:600;">None / Min (Grey)</span>
-                            <div style="width:150px; height:10px; border-radius:3px; background: linear-gradient(to right, #4b5563, #d97706, #ef4444, #991b1b); border: 1px solid rgba(255,255,255,0.2);"></div>
+                            <div style="width:150px; height:10px; border-radius:3px; background: linear-gradient(to right, #2a3444, #ef4444); border: 1px solid rgba(255,255,255,0.2);"></div>
                             <span style="color:#f87171; font-weight:600;">Max (${maxCas.toLocaleString()} Dead - Red)</span>
                         </div>
                     `;
@@ -1847,18 +2695,17 @@
                     ? `<div style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1); color:#60a5fa; font-weight:700; font-size:11px;">🔍 Click / Tap to view ${prov.owner} slide-out stats</div>` 
                     : '';
 
-                const casualtiesBlock = (prov.cas && prov.cas > 0) ? `
+                const casualtiesBlock = (activeMode === 'casualties' && prov.cas && prov.cas > 0) ? `
                     <div style="margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1);">
                         <div class="tt-row"><span style="color:#f87171;">💀 Total Casualties:</span><span class="tt-val" style="color:#fca5a5; font-weight:700;">${prov.cas.toLocaleString()}</span></div>
                         <div class="tt-row"><span>⚔️ Battles Fought:</span><span class="tt-val">${prov.bat || 1}</span></div>
-                        ${prov.top_b ? `<div class="tt-row"><span>💥 Bloodiest:</span><span class="tt-val" style="font-size:11px; max-width:130px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${prov.top_b}</span></div>` : ''}
                     </div>
                 ` : '';
 
-                const devProsBlock = `
+                const devProsBlock = (activeMode === 'devastation') ? `
                     ${prov.devastation > 0 ? `<div class="tt-row"><span style="color:#f87171;">🔥 Devastation:</span><span class="tt-val" style="color:#fca5a5; font-weight:700;">${prov.devastation}%</span></div>` : ''}
                     ${(prov.prosperity > 0 && !prov.devastation) ? `<div class="tt-row"><span style="color:#4ade80;">✨ State Prosperity:</span><span class="tt-val" style="color:#86efac; font-weight:700;">${prov.prosperity}%</span></div>` : ''}
-                `;
+                ` : '';
 
                 tooltip.innerHTML = `
                     <h5>
@@ -1866,7 +2713,7 @@
                         <span class="tag-badge" style="background: rgba(255,255,255,0.1); font-size:10px;">#${pid}</span>
                     </h5>
                     <div class="tt-row"><span>Owner:</span><span class="tt-val">${ownerDisp}</span></div>
-                    <div class="tt-row"><span>Development:</span><span class="tt-val">${prov.dev}</span></div>
+                    <div class="tt-row"><span>Development:</span><span class="tt-val">${prov.dev || 0}</span></div>
                     <div class="tt-row"><span>Terrain Type:</span><span class="tt-val">${prov.coastal ? '🌊 Coastal' : '🏔️ Inland'}</span></div>
                     ${prov.tg ? `<div class="tt-row"><span>Trade Good:</span><span class="tt-val">${prov.tg.replace('_',' ')}</span></div>` : ''}
                     ${prov.aut > 0 ? `<div class="tt-row"><span>Autonomy:</span><span class="tt-val">${prov.aut}%</span></div>` : ''}
@@ -2155,6 +3002,436 @@
                 <div class="roster-pill"><span class="roster-role">Quantity</span><span class="roster-tag">RUS</span></div>
                 <div class="roster-pill"><span class="roster-role">Quality</span><span class="roster-tag">BAH</span></div>
                 <div class="roster-pill"><span class="roster-role">Blob</span><span class="roster-tag">QNG</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Comparison Statistics & Wars Ledger Trigger Buttons ── -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button type="button" class="btn-stats-table" onclick="openStatsTableModal()">
+                <span style="font-size:16px;">📊</span>
+                <span>Detailed Tournament Statistics Ledger</span>
+            </button>
+            <button type="button" class="btn-stats-table btn-wars-table" onclick="openWarsTableModal()">
+                <span style="font-size:16px;">⚔️</span>
+                <span>Wars &amp; Battles Ledger</span>
+            </button>
+        </div>
+        <div style="font-size:12px; color:var(--text-muted);">
+            💡 Click any row to view details &bull; Hover numbers for breakdown
+        </div>
+    </div>
+
+    <!-- ── Comprehensive Statistics Table Modal ── -->
+    <div id="statsTableModal" class="stats-modal-overlay" onclick="closeStatsTableModal(event)">
+        <div class="stats-modal-window" onclick="event.stopPropagation()">
+            <div class="stats-modal-header">
+                <div class="stats-modal-title">
+                    <h3><span>📊</span> Detailed Tournament Statistics &amp; Comparison Ledger</h3>
+                    <p>Comprehensive comparison of all active player nations across Economic, Military, and Naval metrics</p>
+                </div>
+                <div class="stats-modal-tabs">
+                    <button type="button" class="stats-modal-tab-btn active" onclick="switchStatsModalTab('economy', this)">
+                        💰 Country &amp; Economy
+                    </button>
+                    <button type="button" class="stats-modal-tab-btn" onclick="switchStatsModalTab('military', this)">
+                        ⚔️ Military
+                    </button>
+                    <button type="button" class="stats-modal-tab-btn" onclick="switchStatsModalTab('navy', this)">
+                        ⚓ Navy
+                    </button>
+                </div>
+                <button type="button" class="stats-modal-close" onclick="closeStatsTableModal()" title="Close">&times;</button>
+            </div>
+
+            <div class="stats-modal-body">
+                <!-- Tab 1: Country & Economy -->
+                <div id="tab-country-economy" class="stats-table-pane active">
+                    <table class="stats-ledger-table" id="table-country-economy">
+                        <thead>
+                            <tr>
+                                <th style="width:36px">#</th>
+                                <th onclick="sortStatsTable('table-country-economy', 1, false)">Country</th>
+                                <th onclick="sortStatsTable('table-country-economy', 2, false)">Team / Player</th>
+                                <th onclick="sortStatsTable('table-country-economy', 3, true)" class="sorted-desc">Total Dev</th>
+                                <th onclick="sortStatsTable('table-country-economy', 4, true)">Real Dev (Ctrl)</th>
+                                <th onclick="sortStatsTable('table-country-economy', 5, true)">Dev Clicks</th>
+                                <th onclick="sortStatsTable('table-country-economy', 6, true)">Provinces</th>
+                                <th onclick="sortStatsTable('table-country-economy', 7, true)">Total Income</th>
+                                <th onclick="sortStatsTable('table-country-economy', 8, true)">Net Income</th>
+                                <th onclick="sortStatsTable('table-country-economy', 9, false)">Tech Levels</th>
+                                <th onclick="sortStatsTable('table-country-economy', 10, true)">Institutions</th>
+                                <th onclick="sortStatsTable('table-country-economy', 11, true)">Avg Dev / Prov</th>
+                                <th onclick="sortStatsTable('table-country-economy', 12, true)">Avg Real Dev</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in countries|sort(attribute='development', reverse=True) %}
+                            <tr onclick="openCountryDrawer('{{ c.tag }}')">
+                                <td class="rank-num">{{ loop.index }}</td>
+                                <td>
+                                    <div class="country-cell">
+                                        <span class="country-tag-badge {{ 'team2' if c.team == team2.name else '' }}">{{ c.tag }}</span>
+                                        <span style="font-weight:700;">{{ c.tag }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <span class="team-pill {{ 'team1' if c.team == team1.name else 'team2' }}" style="font-size:10px; padding:2px 6px;">{{ 'T1' if c.team == team1.name else 'T2' }}</span>
+                                        <span style="font-weight:600;">{{ c.player }}</span>
+                                    </div>
+                                </td>
+                                <td data-val="{{ c.development }}" style="font-weight:700; color:#60a5fa;">{{ c.development|int }}</td>
+                                <td data-val="{{ c.real_development }}" data-tooltip="Autonomy-Adjusted Real Dev: {{ c.real_development|round(1) }}&#10;• Raw Development: {{ c.development|int }}&#10;• Efficiency Factor: {{ ((c.real_development / (c.development or 1)) * 100)|round(1) }}%" style="font-weight:600; color:#93c5fd;">{{ c.real_development|round(1) }}</td>
+                                <td data-val="{{ c.dev_clicks }}" data-tooltip="Development Clicks: {{ c.dev_clicks }} clicks&#10;Average Cost: {{ c.avg_dev_cost }} mana / click&#10;• ADM Spent: {{ c.dev_spent_adm|format_comma }}&#10;• DIP Spent: {{ c.dev_spent_dip|format_comma }}&#10;• MIL Spent: {{ c.dev_spent_mil|format_comma }}&#10;• Total Mana Spent: {{ c.dev_spent_total|format_comma }}" style="font-weight:700; color:#c084fc;">{{ c.dev_clicks }}</td>
+                                <td data-val="{{ c.province_count }}">{{ c.province_count }}</td>
+                                <td data-val="{{ c.total_income }}" data-tooltip="Total Monthly Income: {{ c.total_income }} ¤/mo&#10;Tax: {{ c.tax_income }} ¤&#10;Production: {{ c.prod_income }} ¤&#10;Trade: {{ c.trade_income }} ¤{% if c.gold_income > 0 %}&#10;Gold: {{ c.gold_income }} ¤{% endif %}{% if c.vassal_income > 0 %}&#10;Vassal Tribute: {{ c.vassal_income }} ¤{% endif %}{% if c.other_income > 0 %}&#10;Other / Tariffs: {{ c.other_income }} ¤{% endif %}" style="color:#4ade80; font-weight:700;">{{ c.total_income }} ¤</td>
+                                <td data-val="{{ c.net_income }}" data-tooltip="Monthly Balance (Net Profit/Loss): {{ '+' if c.net_income > 0 else '' }}{{ c.net_income }} ¤/mo&#10;Gross Income: {{ c.total_income }} ¤&#10;Gross Expenses: {{ c.total_expenses }} ¤&#10;Treasury: {{ c.treasury|round(1) }} ¤">
+                                    <span style="font-weight:700; color:{{ '#4ade80' if c.net_income >= 0 else '#f87171' }}">
+                                        {{ '+' if c.net_income > 0 else '' }}{{ c.net_income }} ¤
+                                    </span>
+                                </td>
+                                <td data-val="{{ c.adm_tech * 10000 + c.dip_tech * 100 + c.mil_tech }}" data-tooltip="Technology Levels:&#10;Administrative Tech: {{ c.adm_tech }}&#10;Diplomatic Tech: {{ c.dip_tech }}&#10;Military Tech: {{ c.mil_tech }}">
+                                    <span style="font-size:11.5px; font-weight:600; color:var(--text-muted)">A:{{ c.adm_tech }} D:{{ c.dip_tech }} M:{{ c.mil_tech }}</span>
+                                </td>
+                                <td data-val="{{ c.institutions_count }}" data-tooltip="Embraced Institutions ({{ c.institutions_count }}):&#10;{{ c.institutions|join('&#10;') if c.institutions else 'None' }}">
+                                    <span class="inst-badge {{ 'embraced-all' if c.institutions_count >= 3 else '' }}">{{ c.institutions_count }}</span>
+                                </td>
+                                <td data-val="{{ c.avg_development }}">{{ c.avg_development }}</td>
+                                <td data-val="{{ c.avg_real_development }}">{{ c.avg_real_development }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Tab 2: Military -->
+                <div id="tab-military" class="stats-table-pane">
+                    <table class="stats-ledger-table" id="table-military">
+                        <thead>
+                            <tr>
+                                <th style="width:36px">#</th>
+                                <th onclick="sortStatsTable('table-military', 1, false)">Country</th>
+                                <th onclick="sortStatsTable('table-military', 2, false)">Team / Player</th>
+                                <th onclick="sortStatsTable('table-military', 3, true)" class="sorted-desc">Max Manpower</th>
+                                <th onclick="sortStatsTable('table-military', 4, true)">Current Manpower</th>
+                                <th onclick="sortStatsTable('table-military', 5, true)">Land Force Limit</th>
+                                <th onclick="sortStatsTable('table-military', 6, true)">Current Units</th>
+                                <th onclick="sortStatsTable('table-military', 7, true)">Land Morale</th>
+                                <th onclick="sortStatsTable('table-military', 8, true)">Discipline</th>
+                                <th onclick="sortStatsTable('table-military', 9, true)">Infantry CA</th>
+                                <th onclick="sortStatsTable('table-military', 10, true)">Cavalry CA</th>
+                                <th onclick="sortStatsTable('table-military', 11, true)">Artillery CA</th>
+                                <th onclick="sortStatsTable('table-military', 12, true)">Army Tradition</th>
+                                <th onclick="sortStatsTable('table-military', 13, true)">Professionalism</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in countries|sort(attribute='max_manpower', reverse=True) %}
+                            <tr onclick="openCountryDrawer('{{ c.tag }}')">
+                                <td class="rank-num">{{ loop.index }}</td>
+                                <td>
+                                    <div class="country-cell">
+                                        <span class="country-tag-badge {{ 'team2' if c.team == team2.name else '' }}">{{ c.tag }}</span>
+                                        <span style="font-weight:700;">{{ c.tag }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <span class="team-pill {{ 'team1' if c.team == team1.name else 'team2' }}" style="font-size:10px; padding:2px 6px;">{{ 'T1' if c.team == team1.name else 'T2' }}</span>
+                                        <span style="font-weight:600;">{{ c.player }}</span>
+                                    </div>
+                                </td>
+                                <td data-val="{{ c.max_manpower * 1000 }}" data-tooltip="Max Manpower Pool: {{ (c.max_manpower * 1000)|format_comma }}&#10;Base Manpower: {{ (c.base_manpower_sum * 1000)|format_comma }}&#10;Manpower Recovery Speed: +{{ ((c.manpower_recovery or 0) * 100)|round(1) }}%" style="font-weight:700; color:#60a5fa;">{{ (c.max_manpower * 1000) | format_k }}</td>
+                                <td data-val="{{ c.current_manpower }}" data-tooltip="Current Available Manpower: {{ c.current_manpower|format_comma }} / {{ (c.max_manpower * 1000)|format_comma }}" style="font-weight:600; color:#93c5fd;">{{ c.current_manpower | format_k }}</td>
+                                <td data-val="{{ c.army_force_limit }}" data-tooltip="Land Force Limit: {{ c.army_force_limit|round(1) }}&#10;{% for lbl, val in c.army_force_limit_breakdown %}{{ lbl }}: {{ '+' if val > 0 else '' }}{{ val|round(1) if val is number else val }}&#10;{% endfor %}">{{ c.army_force_limit|round(1) }}</td>
+                                <td data-val="{{ c.current_units }}" data-tooltip="Active Army Regiments: {{ c.current_units }} regiments&#10;• Total Active Troops: {{ (c.current_units * 1000)|format_comma }}" style="font-weight:700; color:#fbbf24;">{{ c.current_units }}</td>
+                                <td data-val="{{ c.morale_armies }}" data-tooltip="Land Morale: {{ c.morale_armies|round(3) if c.morale_armies else 'N/A' }}&#10;{% for lbl, val in c.morale_armies_breakdown %}{{ lbl }}: {{ '+' if val > 0 else '' }}{{ val|round(3) }}&#10;{% endfor %}" style="font-weight:600; color:#4ade80;">{{ c.morale_armies|round(3) if c.morale_armies else 'N/A' }}</td>
+                                <td data-val="{{ c.discipline }}" data-tooltip="Discipline: {{ (c.discipline * 100)|round(2) if c.discipline else '100.0' }}%&#10;{% for lbl, val in c.discipline_breakdown %}{{ lbl }}: {{ '+' if val > 0 else '' }}{{ (val * 100)|round(1) }}%&#10;{% endfor %}" style="font-weight:700; color:#f87171;">{{ (c.discipline * 100)|round(2) if c.discipline else '100.0' }}%</td>
+                                <td data-val="{{ c.infantry_ca }}" data-tooltip="Infantry Combat Ability: +{{ ((c.infantry_ca or 0) * 100)|round(1) }}%&#10;{% for lbl, val in c.infantry_ca_breakdown %}{{ lbl }}: {{ '+' if val > 0 else '' }}{{ (val * 100)|round(1) }}%&#10;{% endfor %}">{{ '+' if (c.infantry_ca and c.infantry_ca > 0) else '' }}{{ (c.infantry_ca * 100)|round(1) if c.infantry_ca is not none else 0.0 }}%</td>
+                                <td data-val="{{ c.cavalry_ca }}" data-tooltip="Cavalry Combat Ability: +{{ ((c.cavalry_ca or 0) * 100)|round(1) }}%&#10;{% for lbl, val in c.cavalry_ca_breakdown %}{{ lbl }}: {{ '+' if val > 0 else '' }}{{ (val * 100)|round(1) }}%&#10;{% endfor %}">{{ '+' if (c.cavalry_ca and c.cavalry_ca > 0) else '' }}{{ (c.cavalry_ca * 100)|round(1) if c.cavalry_ca is not none else 0.0 }}%</td>
+                                <td data-val="{{ c.artillery_ca }}" data-tooltip="Artillery Combat Ability: +{{ ((c.artillery_ca or 0) * 100)|round(1) }}%&#10;{% for lbl, val in c.artillery_ca_breakdown %}{{ lbl }}: {{ '+' if val > 0 else '' }}{{ (val * 100)|round(1) }}%&#10;{% endfor %}">{{ '+' if (c.artillery_ca and c.artillery_ca > 0) else '' }}{{ (c.artillery_ca * 100)|round(1) if c.artillery_ca is not none else 0.0 }}%</td>
+                                <td data-val="{{ c.army_tradition }}">{{ c.army_tradition|round(1) }}</td>
+                                <td data-val="{{ c.army_professionalism }}">{{ (c.army_professionalism * 100)|round(1) }}%</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Tab 3: Navy -->
+                <div id="tab-navy" class="stats-table-pane">
+                    <table class="stats-ledger-table" id="table-navy">
+                        <thead>
+                            <tr>
+                                <th style="width:36px">#</th>
+                                <th onclick="sortStatsTable('table-navy', 1, false)">Country</th>
+                                <th onclick="sortStatsTable('table-navy', 2, false)">Team / Player</th>
+                                <th onclick="sortStatsTable('table-navy', 3, true)" class="sorted-desc">Total Ships</th>
+                                <th onclick="sortStatsTable('table-navy', 4, true)">Naval Force Limit</th>
+                                <th onclick="sortStatsTable('table-navy', 5, true)">Heavy Ships</th>
+                                <th onclick="sortStatsTable('table-navy', 6, true)">Trade Ships</th>
+                                <th onclick="sortStatsTable('table-navy', 7, true)">Galleys</th>
+                                <th onclick="sortStatsTable('table-navy', 8, true)">Transports</th>
+                                <th onclick="sortStatsTable('table-navy', 9, true)">Naval Morale</th>
+                                <th onclick="sortStatsTable('table-navy', 10, true)">Naval Tradition</th>
+                                <th onclick="sortStatsTable('table-navy', 11, true)">Heavy Ship CA</th>
+                                <th onclick="sortStatsTable('table-navy', 12, true)">Trade Ship CA</th>
+                                <th onclick="sortStatsTable('table-navy', 13, true)">Galley CA</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in countries|sort(attribute='total_ships', reverse=True) %}
+                            <tr onclick="openCountryDrawer('{{ c.tag }}')">
+                                <td class="rank-num">{{ loop.index }}</td>
+                                <td>
+                                    <div class="country-cell">
+                                        <span class="country-tag-badge {{ 'team2' if c.team == team2.name else '' }}">{{ c.tag }}</span>
+                                        <span style="font-weight:700;">{{ c.tag }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <span class="team-pill {{ 'team1' if c.team == team1.name else 'team2' }}" style="font-size:10px; padding:2px 6px;">{{ 'T1' if c.team == team1.name else 'T2' }}</span>
+                                        <span style="font-weight:600;">{{ c.player }}</span>
+                                    </div>
+                                </td>
+                                <td data-val="{{ c.total_ships }}" data-tooltip="Total Active Ships: {{ c.total_ships }}&#10;• Heavy: {{ c.heavy_ships }}&#10;• Trade: {{ c.trade_ships }}&#10;• Galley: {{ c.galley_ships }}&#10;• Transport: {{ c.transport_ships }}" style="font-weight:700; color:#38bdf8;">{{ c.total_ships }}</td>
+                                <td data-val="{{ c.naval_force_limit }}" data-tooltip="Naval Force Limit: {{ c.naval_force_limit|round(1) }}&#10;{% for lbl, val in c.naval_force_limit_breakdown %}{{ lbl }}: {{ '+' if val > 0 else '' }}{{ val|round(1) if val is number else val }}&#10;{% endfor %}" style="font-weight:600; color:#93c5fd;">{{ c.naval_force_limit|round(1) }}</td>
+                                <td data-val="{{ c.heavy_ships }}" style="font-weight:600; color:#60a5fa;">{{ c.heavy_ships }}</td>
+                                <td data-val="{{ c.trade_ships }}" style="font-weight:600; color:#34d399;">{{ c.trade_ships }}</td>
+                                <td data-val="{{ c.galley_ships }}" style="font-weight:600; color:#fbbf24;">{{ c.galley_ships }}</td>
+                                <td data-val="{{ c.transport_ships }}">{{ c.transport_ships }}</td>
+                                <td data-val="{{ c.naval_morale }}" data-tooltip="Naval Morale: {{ c.naval_morale|round(3) if c.naval_morale else 'N/A' }}&#10;{% for lbl, val in c.naval_morale_breakdown %}{{ lbl }}: {{ '+' if val > 0 else '' }}{{ val|round(3) }}&#10;{% endfor %}" style="font-weight:600; color:#4ade80;">{{ c.naval_morale|round(3) if c.naval_morale else 'N/A' }}</td>
+                                <td data-val="{{ c.navy_tradition }}">{{ c.navy_tradition|round(1) }}</td>
+                                <td data-val="{{ c.heavy_ship_ca }}" data-tooltip="Heavy Ship Combat Ability: +{{ ((c.heavy_ship_ca or 0) * 100)|round(1) }}%&#10;{% for lbl, val in c.heavy_ship_ca_breakdown %}{{ lbl }}: {{ '+' if val > 0 else '' }}{{ (val * 100)|round(1) }}%&#10;{% endfor %}">{{ '+' if (c.heavy_ship_ca and c.heavy_ship_ca > 0) else '' }}{{ (c.heavy_ship_ca * 100)|round(1) if c.heavy_ship_ca is not none else 0.0 }}%</td>
+                                <td data-val="{{ c.light_ship_ca }}" data-tooltip="Trade (Light) Ship Combat Ability: +{{ ((c.light_ship_ca or 0) * 100)|round(1) }}%&#10;{% for lbl, val in c.light_ship_ca_breakdown %}{{ lbl }}: {{ '+' if val > 0 else '' }}{{ (val * 100)|round(1) }}%&#10;{% endfor %}">{{ '+' if (c.light_ship_ca and c.light_ship_ca > 0) else '' }}{{ (c.light_ship_ca * 100)|round(1) if c.light_ship_ca is not none else 0.0 }}%</td>
+                                <td data-val="{{ c.galley_ca }}" data-tooltip="Galley Combat Ability: +{{ ((c.galley_ca or 0) * 100)|round(1) }}%&#10;{% for lbl, val in c.galley_ca_breakdown %}{{ lbl }}: {{ '+' if val > 0 else '' }}{{ (val * 100)|round(1) }}%&#10;{% endfor %}">{{ '+' if (c.galley_ca and c.galley_ca > 0) else '' }}{{ (c.galley_ca * 100)|round(1) if c.galley_ca is not none else 0.0 }}%</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Wars & Battles Modal ── -->
+    <div id="warsBattlesModal" class="stats-modal-overlay" onclick="closeWarsTableModal(event)">
+        <div class="stats-modal-window" onclick="event.stopPropagation()">
+            <div class="stats-modal-header">
+                <div class="stats-modal-title">
+                    <h3><span>⚔️</span> Wars &amp; Battles Tournament Ledger</h3>
+                    <p>Complete historical record of all wars and major battles involving player nations</p>
+                </div>
+                <div class="stats-modal-tabs">
+                    <button type="button" class="stats-modal-tab-btn active" onclick="switchWarsModalTab('wars', this)">
+                        ⚔️ Wars ({{ wars|length }})
+                    </button>
+                    <button type="button" class="stats-modal-tab-btn" onclick="switchWarsModalTab('battles', this)">
+                        💥 Battles ({{ battles|length }})
+                    </button>
+                </div>
+                <button type="button" class="stats-modal-close" onclick="closeWarsTableModal()" title="Close">&times;</button>
+            </div>
+
+            <div class="stats-modal-body">
+                <!-- Tab 1: Wars -->
+                <div id="tab-wars" class="stats-table-pane active">
+                    <table class="stats-ledger-table" id="table-wars">
+                        <thead>
+                            <tr>
+                                <th style="width:36px">#</th>
+                                <th onclick="sortStatsTable('table-wars', 1, false)">War Name</th>
+                                <th onclick="sortStatsTable('table-wars', 2, false)">Dates</th>
+                                <th onclick="sortStatsTable('table-wars', 3, false)">Attackers</th>
+                                <th onclick="sortStatsTable('table-wars', 4, false)">Defenders</th>
+                                <th onclick="sortStatsTable('table-wars', 5, false)">Winner / Outcome</th>
+                                <th onclick="sortStatsTable('table-wars', 6, true)" class="sorted-desc">Total Losses</th>
+                                <th onclick="sortStatsTable('table-wars', 7, true)">Loss Ratio (Att:Def)</th>
+                                <th onclick="sortStatsTable('table-wars', 8, true)">Battles</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for w in wars %}
+                            <tr class="war-row" onclick="showBattlesForWar('{{ w.id }}', '{{ w.name|escape }}')" style="cursor:pointer;">
+                                <td class="rank-num">{{ loop.index }}</td>
+                                <td>
+                                    <div style="font-weight:700; color:#f3f4f6;">{{ w.name }}</div>
+                                    <div style="font-size:10.5px; color:#60a5fa; margin-top:2px;">🔍 Click to view {{ w.battles_count }} battles</div>
+                                </td>
+                                <td style="font-size:11.5px; color:var(--text-muted);" data-val="{{ w.start_date }}">
+                                    <span style="color:{{ '#34d399' if w.is_active else 'var(--text-muted)' }}; font-weight:{{ '700' if w.is_active else '500' }}">
+                                        {{ w.start_date }} &ndash; {{ w.end_date }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center;">
+                                        {% for a in w.attackers %}
+                                        <span class="country-tag-badge {{ 'team2' if a.tag in ('BAH','RUS','MLC','QNG') else '' }}" style="font-size:10px; padding:2px 5px; {{ 'border-width:2px; font-weight:800;' if a.is_leader else '' }}" data-tooltip="{{ a.name }}{% if a.player %} ({{ a.player }}){% endif %}{% if a.is_leader %} [War Leader]{% endif %}">
+                                            {{ a.tag }}{% if a.player %}<span style="opacity:0.85; font-size:9.5px;"> ({{ a.player }})</span>{% endif %}
+                                        </span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center;">
+                                        {% for d in w.defenders %}
+                                        <span class="country-tag-badge {{ 'team2' if d.tag in ('BAH','RUS','MLC','QNG') else '' }}" style="font-size:10px; padding:2px 5px; {{ 'border-width:2px; font-weight:800;' if d.is_leader else '' }}" data-tooltip="{{ d.name }}{% if d.player %} ({{ d.player }}){% endif %}{% if d.is_leader %} [War Leader]{% endif %}">
+                                            {{ d.tag }}{% if d.player %}<span style="opacity:0.85; font-size:9.5px;"> ({{ d.player }})</span>{% endif %}
+                                        </span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td style="font-size:12px; font-weight:600;">
+                                    {% if 'Attacker' in w.winner_str %}
+                                    <span style="color:#60a5fa;">{{ w.winner_str }}</span>
+                                    {% elif 'Defender' in w.winner_str %}
+                                    <span style="color:#f87171;">{{ w.winner_str }}</span>
+                                    {% elif 'Ongoing' in w.winner_str %}
+                                    <span style="color:#fbbf24;">{{ w.winner_str }}</span>
+                                    {% else %}
+                                    <span style="color:var(--text-muted);">{{ w.winner_str }}</span>
+                                    {% endif %}
+                                </td>
+                                <td data-val="{{ w.total_losses }}" data-tooltip="Total War Casualties: {{ w.total_losses|format_comma }}&#10;• Battle Casualties: {{ w.total_combat_losses|format_comma }} (Att: {{ w.attacker_combat_losses|format_comma }}, Def: {{ w.defender_combat_losses|format_comma }})&#10;• Attrition Casualties: {{ w.total_attrition_losses|format_comma }} (Att: {{ w.attacker_attrition_losses|format_comma }}, Def: {{ w.defender_attrition_losses|format_comma }})&#10;• Attacker Total: {{ w.attacker_total_losses|format_comma }}&#10;• Defender Total: {{ w.defender_total_losses|format_comma }}">
+                                    <div style="font-weight:800; font-size:13.5px; color:#ef4444;">{{ w.total_losses|format_k }}</div>
+                                    <div style="font-size:10px; color:var(--text-muted); display:flex; gap:6px; margin-top:2px;">
+                                        <span style="color:#fbbf24;">💥 {{ w.total_combat_losses|format_k }} battle</span>
+                                        <span style="color:#fb923c;">💀 {{ w.total_attrition_losses|format_k }} attr</span>
+                                    </div>
+                                </td>
+                                <td data-val="{{ w.raw_loss_ratio }}" style="font-weight:700; color:{{ '#34d399' if w.raw_loss_ratio <= 1.0 else '#fbbf24' if w.raw_loss_ratio <= 2.0 else '#f87171' }};">
+                                    {{ w.loss_ratio_str }}
+                                </td>
+                                <td data-val="{{ w.battles_count }}" style="text-align:center;">
+                                    <button type="button" class="btn-view-battles" onclick="event.stopPropagation(); showBattlesForWar('{{ w.id }}', '{{ w.name|escape }}')">
+                                        ⚔️ {{ w.battles_count }} Battles &rarr;
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Tab 2: Battles -->
+                <div id="tab-battles" class="stats-table-pane">
+                    <div id="battle-filter-banner" class="battle-filter-banner"></div>
+                    <table class="stats-ledger-table" id="table-battles">
+                        <thead>
+                            <tr>
+                                <th style="width:36px">#</th>
+                                <th onclick="sortStatsTable('table-battles', 1, false)">Battle</th>
+                                <th onclick="sortStatsTable('table-battles', 2, false)">Date</th>
+                                <th onclick="sortStatsTable('table-battles', 3, false)">Type</th>
+                                <th onclick="sortStatsTable('table-battles', 4, false)">Location</th>
+                                <th onclick="sortStatsTable('table-battles', 5, false)">War</th>
+                                <th onclick="sortStatsTable('table-battles', 6, true)" class="sorted-desc">Total Losses</th>
+                                <th onclick="sortStatsTable('table-battles', 7, false)">Attacker Participants</th>
+                                <th onclick="sortStatsTable('table-battles', 8, true)">Attacker Forces</th>
+                                <th onclick="sortStatsTable('table-battles', 9, false)">Defender Participants</th>
+                                <th onclick="sortStatsTable('table-battles', 10, true)">Defender Forces</th>
+                                <th onclick="sortStatsTable('table-battles', 11, false)">Victor</th>
+                                <th onclick="sortStatsTable('table-battles', 12, true)">Loss Ratio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for b in battles %}
+                            <tr data-war-id="{{ b.war_id }}">
+                                <td class="rank-num">{{ loop.index }}</td>
+                                <td style="font-weight:700; color:#ffffff;">{{ b.battle_name }}</td>
+                                <td style="font-size:11.5px; color:var(--text-muted);" data-val="{{ b.date }}">{{ b.date }}</td>
+                                <td>
+                                    <span style="font-size:11px; padding:2px 6px; border-radius:10px; background:{{ 'rgba(56,189,248,0.15)' if b.is_naval else 'rgba(245,158,11,0.15)' }}; color:{{ '#38bdf8' if b.is_naval else '#fbbf24' }}; border:1px solid {{ 'rgba(56,189,248,0.3)' if b.is_naval else 'rgba(245,158,11,0.3)' }}; font-weight:700;">
+                                        {{ b.type_label }}
+                                    </span>
+                                </td>
+                                <td style="font-size:12px; color:#93c5fd;">{{ b.province_name }}</td>
+                                <td style="font-size:11.5px; color:var(--text-dim); max-width:180px; overflow:hidden; text-overflow:ellipsis;" data-tooltip="{{ b.war_name }} (Click to filter)" onclick="showBattlesForWar('{{ b.war_id }}', '{{ b.war_name|escape }}')" style="cursor:pointer; text-decoration:underline;">{{ b.war_name }}</td>
+                                <td data-val="{{ b.total_losses }}" data-tooltip="Total Battle Casualties: {{ b.total_losses|format_comma }}&#10;• Attacker Losses: {{ b.attacker_losses|format_comma }}&#10;• Defender Losses: {{ b.defender_losses|format_comma }}&#10;{% if b.is_naval %}Att Ships Lost: {{ b.attacker_losses_heavy }}H / {{ b.attacker_losses_light }}L / {{ b.attacker_losses_galley }}G / {{ b.attacker_losses_trans }}T&#10;Def Ships Lost: {{ b.defender_losses_heavy }}H / {{ b.defender_losses_light }}L / {{ b.defender_losses_galley }}G / {{ b.defender_losses_trans }}T{% else %}Att Troops Lost: {{ b.attacker_losses_inf|format_comma }} Inf / {{ b.attacker_losses_cav|format_comma }} Cav / {{ b.attacker_losses_art|format_comma }} Art&#10;Def Troops Lost: {{ b.defender_losses_inf|format_comma }} Inf / {{ b.defender_losses_cav|format_comma }} Cav / {{ b.defender_losses_art|format_comma }} Art{% endif %}">
+                                    <div style="font-weight:800; font-size:13.5px; color:#ef4444;">{{ b.total_losses|format_k }}</div>
+                                    <div style="font-size:10px; color:var(--text-muted); display:flex; gap:6px; margin-top:2px;">
+                                        <span style="color:#60a5fa;">⚔️ {{ b.attacker_losses|format_k }}</span>
+                                        <span style="color:#f87171;">🛡️ {{ b.defender_losses|format_k }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="display:flex; flex-direction:column; gap:3px;">
+                                        <div style="display:flex; align-items:center; gap:4px;">
+                                            <span class="country-tag-badge {{ 'team2' if b.attacker_tag in ('BAH','RUS','MLC','QNG') else '' }}" style="font-size:10px; padding:2px 5px; border-width:2px; font-weight:800;" data-tooltip="Primary Combatant: {{ b.attacker_name }}{% if b.attacker_player %} ({{ b.attacker_player }}){% endif %}">
+                                                {{ b.attacker_tag }}{% if b.attacker_player %}<span style="opacity:0.85; font-size:9.5px;"> ({{ b.attacker_player }})</span>{% endif %}
+                                            </span>
+                                        </div>
+                                        {% if b.attacker_commander %}
+                                        <div style="font-size:10px; color:var(--text-dim);">Cmd: {{ b.attacker_commander }}</div>
+                                        {% endif %}
+                                        {% if b.war_attackers and b.war_attackers|length > 1 %}
+                                        <div style="display:flex; flex-wrap:wrap; gap:3px; align-items:center; margin-top:2px;">
+                                            <span style="font-size:9.5px; color:var(--text-dim);">Allies:</span>
+                                            {% for a in b.war_attackers %}{% if a.tag != b.attacker_tag %}
+                                            <span class="country-tag-badge {{ 'team2' if a.tag in ('BAH','RUS','MLC','QNG') else '' }}" style="font-size:9px; padding:1px 4px;" data-tooltip="Allied Participant: {{ a.name }}{% if a.player %} ({{ a.player }}){% endif %}">
+                                                {{ a.tag }}
+                                            </span>
+                                            {% endif %}{% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td data-val="{{ b.attacker_total }}" data-tooltip="Attacker Forces Breakdown:&#10;{% if b.is_naval %}Heavy Ships: {{ b.attacker_heavy }}&#10;Light Ships: {{ b.attacker_light }}&#10;Galleys: {{ b.attacker_galley }}&#10;Transports: {{ b.attacker_trans }}{% else %}Infantry: {{ b.attacker_inf|format_comma }}&#10;Cavalry: {{ b.attacker_cav|format_comma }}&#10;Artillery: {{ b.attacker_art|format_comma }}{% endif %}" style="font-weight:600; color:#93c5fd;">
+                                    {{ b.attacker_total|format_k }}
+                                    <div style="font-size:9.5px; color:var(--text-dim);">
+                                        {% if b.is_naval %}
+                                        {{ b.attacker_heavy }}H / {{ b.attacker_light }}L / {{ b.attacker_galley }}G
+                                        {% else %}
+                                        {{ b.attacker_inf|format_k }}I / {{ b.attacker_cav|format_k }}C / {{ b.attacker_art|format_k }}A
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="display:flex; flex-direction:column; gap:3px;">
+                                        <div style="display:flex; align-items:center; gap:4px;">
+                                            <span class="country-tag-badge {{ 'team2' if b.defender_tag in ('BAH','RUS','MLC','QNG') else '' }}" style="font-size:10px; padding:2px 5px; border-width:2px; font-weight:800;" data-tooltip="Primary Combatant: {{ b.defender_name }}{% if b.defender_player %} ({{ b.defender_player }}){% endif %}">
+                                                {{ b.defender_tag }}{% if b.defender_player %}<span style="opacity:0.85; font-size:9.5px;"> ({{ b.defender_player }})</span>{% endif %}
+                                            </span>
+                                        </div>
+                                        {% if b.defender_commander %}
+                                        <div style="font-size:10px; color:var(--text-dim);">Cmd: {{ b.defender_commander }}</div>
+                                        {% endif %}
+                                        {% if b.war_defenders and b.war_defenders|length > 1 %}
+                                        <div style="display:flex; flex-wrap:wrap; gap:3px; align-items:center; margin-top:2px;">
+                                            <span style="font-size:9.5px; color:var(--text-dim);">Allies:</span>
+                                            {% for d in b.war_defenders %}{% if d.tag != b.defender_tag %}
+                                            <span class="country-tag-badge {{ 'team2' if d.tag in ('BAH','RUS','MLC','QNG') else '' }}" style="font-size:9px; padding:1px 4px;" data-tooltip="Allied Participant: {{ d.name }}{% if d.player %} ({{ d.player }}){% endif %}">
+                                                {{ d.tag }}
+                                            </span>
+                                            {% endif %}{% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td data-val="{{ b.defender_total }}" data-tooltip="Defender Forces Breakdown:&#10;{% if b.is_naval %}Heavy Ships: {{ b.defender_heavy }}&#10;Light Ships: {{ b.defender_light }}&#10;Galleys: {{ b.defender_galley }}&#10;Transports: {{ b.defender_trans }}{% else %}Infantry: {{ b.defender_inf|format_comma }}&#10;Cavalry: {{ b.defender_cav|format_comma }}&#10;Artillery: {{ b.defender_art|format_comma }}{% endif %}" style="font-weight:600; color:#93c5fd;">
+                                    {{ b.defender_total|format_k }}
+                                    <div style="font-size:9.5px; color:var(--text-dim);">
+                                        {% if b.is_naval %}
+                                        {{ b.defender_heavy }}H / {{ b.defender_light }}L / {{ b.defender_galley }}G
+                                        {% else %}
+                                        {{ b.defender_inf|format_k }}I / {{ b.defender_cav|format_k }}C / {{ b.defender_art|format_k }}A
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td style="font-weight:700; color:{{ '#60a5fa' if b.winner_side == 'Attacker' else '#f87171' }};">
+                                    🏆 {{ b.winner_tag }}{% if b.winner_player %} ({{ b.winner_player }}){% endif %}
+                                </td>
+                                <td data-val="{{ b.raw_loss_ratio }}" style="font-weight:700; color:{{ '#34d399' if b.raw_loss_ratio <= 1.0 else '#fbbf24' if b.raw_loss_ratio <= 2.0 else '#f87171' }};">
+                                    {{ b.loss_ratio_str }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -2573,6 +3850,55 @@
 
                     <!-- Pane 2: Economy & Realm -->
                     <div class="drawer-tab-pane" data-pane="economy-{{ c.tag }}">
+                        <div class="panel-section-title">💵 Monthly Income &amp; Balance</div>
+                        <div class="stat-grid" style="margin-bottom:16px;">
+                            <div class="stat-box">
+                                <h4>Total Monthly Income</h4>
+                                <div class="stat-val" style="color:#4ade80">{{ c.total_income }} <span style="font-size:13px; font-weight:normal">¤/mo</span></div>
+                                <div class="breakdown">
+                                    <span>Tax Income: {{ c.tax_income }} ¤</span>
+                                    <span>Production: {{ c.prod_income }} ¤</span>
+                                    <span>Trade: {{ c.trade_income }} ¤</span>
+                                    {% if c.gold_income > 0 %}<span>Gold: {{ c.gold_income }} ¤</span>{% endif %}
+                                    {% if c.vassal_income > 0 %}<span>Vassal Tribute: {{ c.vassal_income }} ¤</span>{% endif %}
+                                    {% if c.other_income > 0 %}<span>Other / Tariffs: {{ c.other_income }} ¤</span>{% endif %}
+                                </div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Net Monthly Balance</h4>
+                                <div class="stat-val" style="color:{{ '#4ade80' if c.net_income >= 0 else '#f87171' }}">
+                                    {{ '+' if c.net_income > 0 else '' }}{{ c.net_income }} <span style="font-size:13px; font-weight:normal">¤/mo</span>
+                                </div>
+                                <div class="breakdown">
+                                    <span>Expenses: {{ c.total_expenses }} ¤/mo</span>
+                                    <span>Treasury: {{ c.treasury|round(1) }} ¤</span>
+                                    <span>Status: {{ 'Profitable' if c.net_income >= 0 else 'Deficit' }}</span>
+                                </div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Tax Income</h4>
+                                <div class="stat-val">{{ c.tax_income }} ¤</div>
+                                <div class="breakdown"><span>{{ ((c.tax_income / (c.total_income or 1)) * 100)|round(1) }}% of revenue</span></div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Production Income</h4>
+                                <div class="stat-val">{{ c.prod_income }} ¤</div>
+                                <div class="breakdown"><span>{{ ((c.prod_income / (c.total_income or 1)) * 100)|round(1) }}% of revenue</span></div>
+                            </div>
+                            <div class="stat-box">
+                                <h4>Trade Income</h4>
+                                <div class="stat-val">{{ c.trade_income }} ¤</div>
+                                <div class="breakdown"><span>{{ ((c.trade_income / (c.total_income or 1)) * 100)|round(1) }}% of revenue</span></div>
+                            </div>
+                            {% if c.gold_income > 0 %}
+                            <div class="stat-box">
+                                <h4>Gold Income</h4>
+                                <div class="stat-val" style="color:#fbbf24">{{ c.gold_income }} ¤</div>
+                                <div class="breakdown"><span>{{ ((c.gold_income / (c.total_income or 1)) * 100)|round(1) }}% of revenue</span></div>
+                            </div>
+                            {% endif %}
+                        </div>
+
                         <div class="panel-section-title">💰 Economic Multipliers &amp; Capacity</div>
                         <div class="stat-grid">
                             <div class="stat-box">
@@ -2846,6 +4172,22 @@
                             {% endfor %}
                         </div>
 
+                        <div class="panel-section-title">👑 Crownland &amp; Estate Land Distribution</div>
+                        <div class="stat-grid" style="margin-bottom:16px">
+                            <div class="stat-box">
+                                <h4>Crownland Ownership</h4>
+                                <div class="stat-val" style="color:{{ '#4ade80' if c.crownland >= 50 else ('#fbbf24' if c.crownland >= 30 else '#f87171') }}">{{ c.crownland }}%</div>
+                                <div class="breakdown"><span>{{ 'High Crownland Tier' if c.crownland >= 50 else ('Equilibrium Tier' if c.crownland >= 30 else 'Low Crownland Penalty') }}</span></div>
+                            </div>
+                            {% for est in c.estates %}
+                            <div class="stat-box">
+                                <h4>{{ est.name }}</h4>
+                                <div class="stat-val">{{ est.territory|round(1) }}% Land</div>
+                                <div class="breakdown"><span>Loyalty: {{ est.loyalty|round(1) }}%</span></div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
                         <div class="panel-section-title">🏛️ Active Estate Privileges</div>
                         <div class="tag-list" style="margin-bottom:16px">
                             {% for priv in c.estate_privileges %}
@@ -2882,11 +4224,14 @@
         </div>
     </div>
 
-    <div class="footer-card">
-        <div>Most Developed Province: <b>{{ most_dev_province.name }}</b> ({{ most_dev_province.owner }}) &mdash; {{ most_dev_province.development|int }} dev</div>
-        <div>Tournament Report Generator</div>
+    <div style="text-align:center; padding: 28px 0 16px 0; color:var(--text-muted); font-size:12px;">
+        EU4 Tournament Report Generator
     </div>
 
 </div>
+
+<!-- ── Custom Rich Floating Tooltip ── -->
+<div id="rich-floating-tooltip" class="rich-floating-tooltip"></div>
+
 </body>
 </html>

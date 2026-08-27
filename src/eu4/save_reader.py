@@ -106,6 +106,10 @@ class CountryData:
     estate_discipline: float = 0.0
     # list of (privilege_name, land_share_fraction) from all estates
     estate_privileges: list = field(default_factory=list)
+    # crownland ownership percentage (100 - sum(estate territory))
+    crownland: float = 0.0
+    # past tags from formation history (e.g. ['FRA', 'BUR'])
+    tag_history: list[str] = field(default_factory=list)
     # entity_id → job_type_name extracted from country history (e.g. 58720 → "commandant")
     advisor_job_types: dict = field(default_factory=dict)
     estimated_monthly_income: float = 0.0
@@ -132,6 +136,11 @@ class CountryData:
     province_count: int = 0   # directly owned provinces (set in load_save_full)
     # Dev clicks ≈ raw_development - starting_development
     dev_clicks: int = 0
+    dev_spent_adm: int = 0
+    dev_spent_dip: int = 0
+    dev_spent_mil: int = 0
+    dev_spent_total: int = 0
+    avg_dev_cost: float = 0.0
 
     # ── government ───────────────────────────────────────────────────────────
     used_governing_capacity: float = 0.0
@@ -190,6 +199,25 @@ class CountryData:
     compiled_modifiers: dict[str, float] = field(default_factory=dict)
     modifier_breakdowns: dict[str, list] = field(default_factory=dict)
     subjects: list[str] = field(default_factory=list)
+
+    # ── economy & ledger ──────────────────────────────────────────────────────
+    total_income: float = 0.0
+    total_expenses: float = 0.0
+    net_income: float = 0.0
+    income_breakdown: dict[str, float] = field(default_factory=dict)
+
+    # ── military units & manpower ─────────────────────────────────────────────
+    current_manpower: float = 0.0
+    current_units: int = 0
+
+    # ── institutions ──────────────────────────────────────────────────────────
+    institutions: list[str] = field(default_factory=list)
+    institutions_count: int = 0
+
+    # ── real development (controlled / autonomy-adjusted) ──────────────────────
+    real_development: float = 0.0
+    avg_development: float = 0.0
+    avg_real_development: float = 0.0
 
     # ── historical ideas (kept for reference) ────────────────────────────────
     historical_idea_groups: list[str] = field(default_factory=list)
@@ -481,6 +509,44 @@ def _extract_dev_clicks(country_node: ClausewitzNode) -> int:
     return max(0, int(round(raw_dev - starting_dev)))
 
 
+def _extract_dev_spent(
+    country_node: ClausewitzNode,
+    countries_node: ClausewitzNode | None = None,
+    tag_hist: list[str] | None = None,
+) -> tuple[int, int, int, int, float]:
+    """Extract mana spent developing provinces from adm_spent_indexed, dip_spent_indexed, mil_spent_indexed (index 7).
+
+    Also sums previous tags in tag_hist if country changed tag.
+    Returns (adm_dev, dip_dev, mil_dev, total_dev, avg_cost).
+    """
+    tags_to_check = [country_node]
+    if countries_node and tag_hist:
+        for prev_tag in tag_hist:
+            prev_node = countries_node.get_node(prev_tag)
+            if prev_node and prev_node is not country_node and prev_node not in tags_to_check:
+                tags_to_check.append(prev_node)
+
+    adm_dev = 0
+    dip_dev = 0
+    mil_dev = 0
+    total_clicks = 0
+    for node in tags_to_check:
+        adm_node = node.get_node("adm_spent_indexed")
+        if adm_node:
+            adm_dev += int(float(adm_node.get_str("7") or 0))
+        dip_node = node.get_node("dip_spent_indexed")
+        if dip_node:
+            dip_dev += int(float(dip_node.get_str("7") or 0))
+        mil_node = node.get_node("mil_spent_indexed")
+        if mil_node:
+            mil_dev += int(float(mil_node.get_str("7") or 0))
+        total_clicks += _extract_dev_clicks(node)
+
+    total_dev = adm_dev + dip_dev + mil_dev
+    avg_cost = (total_dev / total_clicks) if total_clicks > 0 else 0.0
+    return adm_dev, dip_dev, mil_dev, total_dev, round(avg_cost, 1)
+
+
 def _extract_ships(country_node: ClausewitzNode) -> tuple[int, int, int, int]:
     """Returns (heavy_ships, trade_ships, galley_ships, transport_ships)."""
     heavy = trade = galley = transport = 0
@@ -585,6 +651,23 @@ def _extract_army_drill(country_node: ClausewitzNode) -> float:
     return total_drill / reg_count if reg_count > 0 else 0.0
 
 
+def _extract_tag_history(country_node: ClausewitzNode, current_tag: str) -> list[str]:
+    """Extract list of current and previous tags from formation history (e.g. ['FRA', 'BUR'])."""
+    tags = [current_tag]
+    hist = country_node.get_node("history")
+    if not hist:
+        return tags
+    for k, v in hist.items():
+        if k == "changed_tag_from" and isinstance(v, str):
+            if v not in tags:
+                tags.append(v)
+        elif isinstance(v, ClausewitzNode):
+            prev = v.get_str("changed_tag_from")
+            if prev and prev not in tags:
+                tags.append(prev)
+    return tags
+
+
 def _extract_countries(
     root: ClausewitzNode,
     tag_to_player: dict[str, str],
@@ -602,21 +685,87 @@ def _extract_countries(
             continue
         if len(tag) != 3:
             continue
-        # Only process human-played countries
-        if tag not in tag_to_player and country_node.get_str("human") != "yes":
+
+        raw_dev = country_node.get_float("raw_development")
+        # Only process living countries that currently hold development/territory
+        if raw_dev <= 0.0:
             continue
+
+        tag_hist = _extract_tag_history(country_node, tag)
+
+        # Check if current tag or any of its previous formed tags is a human player
+        is_human = (
+            country_node.get_str("human") == "yes"
+            or any(t in tag_to_player for t in tag_hist)
+        )
+        if not is_human:
+            continue
+
+        # Resolve the active player name:
+        # If the nation was formed from an earlier human-played tag (e.g. BUR -> FRA),
+        # prioritize the human player name associated with the formation lineage.
+        player_name = tag_to_player.get(tag)
+        for prev_t in tag_hist:
+            if prev_t in tag_to_player:
+                p_cand = tag_to_player[prev_t]
+                if p_cand and p_cand != "Unknown":
+                    # If current player was default ruler name or not set, take the formable's player
+                    if not player_name or player_name == "Unknown" or prev_t != tag:
+                        player_name = p_cand
+                        break
+
+        if not player_name:
+            player_name = "Unknown"
 
         gov_type, reforms = _extract_government(country_node)
         heavy, trade, galley, transport = _extract_ships(country_node)
         colonial_count, pu_count, colonial_tags = _extract_subjects(country_node, tag, countries_node)
-        raw_dev = country_node.get_float("raw_development")
         starting_dev = _extract_starting_development(country_node)
         accepted_cultures_list = [x for x in country_node.get_list("accepted_culture") if isinstance(x, str)]
         avg_drill = _extract_army_drill(country_node)
+        estates_list = _extract_estates(country_node)
+
+        # Ledger income and expenses
+        ledger = country_node.get_node("ledger")
+        last_income = ledger.get_float("lastmonthincome") if ledger else (country_node.get_float("estimated_monthly_income") or 0.0)
+        last_expense = ledger.get_float("lastmonthexpense") if ledger else 0.0
+        net_inc = last_income - last_expense
+
+        inc_table = ledger.get_node("lastmonthincometable").array if ledger and ledger.get_node("lastmonthincometable") else []
+        tax_inc = float(inc_table[0]) if len(inc_table) > 0 else 0.0
+        prod_inc = float(inc_table[1]) if len(inc_table) > 1 else 0.0
+        trade_inc = float(inc_table[2]) if len(inc_table) > 2 else 0.0
+        gold_inc = float(inc_table[3]) if len(inc_table) > 3 else 0.0
+        tariffs_inc = float(inc_table[4]) if len(inc_table) > 4 else 0.0
+        vassal_inc = float(inc_table[5]) if len(inc_table) > 5 else 0.0
+        other_inc = max(0.0, last_income - (tax_inc + prod_inc + trade_inc + gold_inc + tariffs_inc + vassal_inc))
+        inc_breakdown = {
+            "tax": tax_inc,
+            "production": prod_inc,
+            "trade": trade_inc,
+            "gold": gold_inc,
+            "tariffs": tariffs_inc,
+            "vassals": vassal_inc,
+            "other": other_inc,
+        }
+
+        # Institutions
+        INST_NAMES = ["Feudalism", "Renaissance", "Colonialism", "Printing Press", "Global Trade", "Manufactories", "Enlightenment", "Industrialization"]
+        inst_arr = country_node.get_node("institutions").array if country_node.get_node("institutions") else []
+        embraced_institutions = [INST_NAMES[i] for i, v in enumerate(inst_arr) if str(v) == "1" and i < len(INST_NAMES)]
+
+        # Manpower & Army
+        curr_mp = (country_node.get_float("manpower") or 0.0) * 1000.0
+        curr_units = sum(len(a.get_list("regiment")) for a in country_node.get_list("army") if isinstance(a, ClausewitzNode))
+
+        adm_dev, dip_dev, mil_dev, total_dev_spent, avg_cost = _extract_dev_spent(
+            country_node, countries_node, tag_hist
+        )
 
         cd = CountryData(
             tag=tag,
-            player=tag_to_player.get(tag, "Unknown"),
+            player=player_name,
+            tag_history=tag_hist,
             raw_development=raw_dev,
             starting_development=starting_dev,
             army_tradition=country_node.get_float("army_tradition"),
@@ -671,7 +820,8 @@ def _extract_countries(
             meritocracy=country_node.get_float("meritocracy"),
             estate_discipline=_extract_estate_discipline(country_node),
             estate_privileges=_extract_estate_privileges(country_node),
-            estates=_extract_estates(country_node),
+            crownland=max(0.0, round(100.0 - sum(e[2] for e in estates_list), 2)),
+            estates=estates_list,
             advisor_job_types=advisor_job_map or {},
             active_policies=_extract_active_policies(country_node),
             religion=_extract_religion(country_node),
@@ -691,9 +841,22 @@ def _extract_countries(
             personal_unions_count=pu_count,
             colonial_nation_tags=colonial_tags,
             dev_clicks=_extract_dev_clicks(country_node),
+            dev_spent_adm=adm_dev,
+            dev_spent_dip=dip_dev,
+            dev_spent_mil=mil_dev,
+            dev_spent_total=total_dev_spent,
+            avg_dev_cost=avg_cost,
             used_governing_capacity=country_node.get_float("used_governing_capacity"),
             estimated_monthly_income=country_node.get_float("estimated_monthly_income") or 0.0,
             treasury=country_node.get_float("treasury") or 0.0,
+            total_income=round(last_income, 2),
+            total_expenses=round(last_expense, 2),
+            net_income=round(net_inc, 2),
+            income_breakdown=inc_breakdown,
+            current_manpower=round(curr_mp, 0),
+            current_units=curr_units,
+            institutions=embraced_institutions,
+            institutions_count=len(embraced_institutions),
         )
 
         # Victory card
@@ -723,7 +886,7 @@ def load_save(save_path: str) -> tuple[dict[str, str], list[CountryData]]:
 
 def _scan_provinces(
     root: ClausewitzNode, player_tags: set[str], coastal_provinces: set[int] | None = None,
-) -> tuple[dict, dict[str, int], dict[str, str], dict[str, float], dict[str, set], dict[str, float], dict[str, float], dict[str, list[tuple[str, str]]], dict[int, dict[str, Any]]]:
+) -> tuple[dict, dict[str, int], dict[str, str], dict[str, float], dict[str, set], dict[str, float], dict[str, float], dict[str, list[tuple[str, str]]], dict[int, dict[str, Any]], dict[str, float]]:
     """
     Scan the provinces node once and return:
       most_dev_province      — dict with the highest-dev player province
@@ -735,6 +898,7 @@ def _scan_provinces(
       tag_province_nfl       — {tag: sum_of_province_naval_force_limits} for ALL tags
       tag_province_modifiers — {tag: list[(modifier_name, province_name)]} for ALL tags
       prov_info_map          — {province_id_int: {name, owner, dev, tg, aut, tc, has_shipyard}}
+      tag_real_dev           — {tag: sum_of_autonomy_adjusted_real_dev}
     """
     provinces_node = root.get_node("provinces")
     best: dict = {"development": 0.0}
@@ -746,9 +910,10 @@ def _scan_provinces(
     tag_province_nfl: dict[str, float] = {}
     tag_province_modifiers: dict[str, list[tuple[str, str]]] = {}
     prov_info_map: dict[int, dict[str, Any]] = {}
+    tag_real_dev: dict[str, float] = {}
 
     if not provinces_node:
-        return best, tag_count, province_owner_map, tag_base_manpower, tag_province_sets, tag_province_lfl, tag_province_nfl, tag_province_modifiers, prov_info_map
+        return best, tag_count, province_owner_map, tag_base_manpower, tag_province_sets, tag_province_lfl, tag_province_nfl, tag_province_modifiers, prov_info_map, tag_real_dev
 
     for pid, prov_node in provinces_node.items():
         if not isinstance(prov_node, ClausewitzNode):
@@ -802,6 +967,9 @@ def _scan_provinces(
         is_territory = bool(tc or prov_node.get_str("territorial_core") or (owner and owner in prov_node.get_list("territorial_core")))
         eff_autonomy = max(autonomy, 75.0) if is_territory else autonomy
         aut_factor = max(0.0, 1.0 - (eff_autonomy / 100.0))
+
+        # Real controlled development
+        tag_real_dev[owner] = tag_real_dev.get(owner, 0.0) + (dev * aut_factor)
 
         # Land Force Limit contribution
         lfl = dev * 0.1 * aut_factor
@@ -868,6 +1036,7 @@ def _scan_provinces(
         tag_province_nfl,
         tag_province_modifiers,
         prov_info_map,
+        tag_real_dev,
     )
 
 
@@ -1132,7 +1301,7 @@ def load_save_full(
 
     # Province scan — returns extended data
     coastal_provinces = getattr(game_data, "coastal_provinces", None) if game_data else None
-    most_dev, tag_province_counts, province_owner_map, tag_base_manpower, tag_province_sets, tag_province_lfl, tag_province_nfl, tag_province_modifiers, prov_info_map = \
+    most_dev, tag_province_counts, province_owner_map, tag_base_manpower, tag_province_sets, tag_province_lfl, tag_province_nfl, tag_province_modifiers, prov_info_map, tag_real_dev = \
         _scan_provinces(root, set(tag_to_player.keys()), coastal_provinces=coastal_provinces)
 
     # Enrich province data with area and state prosperity
@@ -1191,6 +1360,9 @@ def load_save_full(
         cd.is_curia_controller = (cd.tag == curia_controller)
         cd.is_hre_emperor = (cd.tag == hre_emperor)
         cd.province_count = tag_province_counts.get(cd.tag, 0)
+        cd.real_development = round(tag_real_dev.get(cd.tag, cd.raw_development), 1)
+        cd.avg_development = round(cd.raw_development / max(1, cd.province_count), 1)
+        cd.avg_real_development = round(cd.real_development / max(1, cd.province_count), 1)
         cd.hegemony = hegemony_map.get(cd.tag, "")
         cd.base_manpower_sum = tag_base_manpower.get(cd.tag, 0.0)
         cd.province_lfl = tag_province_lfl.get(cd.tag, 0.0)
@@ -1240,6 +1412,9 @@ def load_save_full(
         cd.subject_nfl = sub_nfl
         cd.large_cn_count = large_cn_count
 
+    # Extract wars & battles
+    wars, battles = _extract_wars_and_battles(root, countries, tag_names, prov_info_map)
+
     extra = {
         "province_owner_map": province_owner_map,
         "tag_base_manpower": tag_base_manpower,
@@ -1249,9 +1424,337 @@ def load_save_full(
         "raw_monuments": raw_monuments,
         "prov_info_map": prov_info_map,
         "tag_names": tag_names,
+        "wars": wars,
+        "battles": battles,
     }
 
     return players_countries, countries, most_dev, extra
+
+
+def _extract_wars_and_battles(
+    root: ClausewitzNode,
+    countries: list[CountryData],
+    tag_names: dict[str, str],
+    prov_info_map: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    all_player_tags: set[str] = set()
+    player_tag_map: dict[str, dict[str, str]] = {}
+    for cd in countries:
+        all_player_tags.add(cd.tag)
+        player_tag_map[cd.tag] = {"player": cd.player, "team": getattr(cd, "team", ""), "current_tag": cd.tag}
+        for pt in getattr(cd, "previous_tags", []):
+            all_player_tags.add(pt)
+            player_tag_map[pt] = {"player": cd.player, "team": getattr(cd, "team", ""), "current_tag": cd.tag}
+
+    prev_wars = root.get_list("previous_war")
+    active_wars = root.get_list("active_war")
+    all_war_nodes = [(w, False) for w in prev_wars] + [(w, True) for w in active_wars]
+
+    extracted_wars = []
+    extracted_battles = []
+
+    for w, is_active in all_war_nodes:
+        if not isinstance(w, ClausewitzNode):
+            continue
+        wname = w.get_str("name") or "Unnamed War"
+        orig_att = w.get_str("original_attacker")
+        orig_def = w.get_str("original_defender")
+
+        attackers: list[str] = []
+        defenders: list[str] = []
+        hist = w.get_node("history")
+        start_date = ""
+        end_date = ""
+        battles_in_war = []
+
+        if hist:
+            date_keys = sorted([k for k in hist.keys() if "." in k])
+            if date_keys:
+                start_date = date_keys[0]
+                end_date = date_keys[-1] if not is_active else "Ongoing"
+
+            for dk in date_keys:
+                sub = hist.get_node(dk)
+                if not sub:
+                    continue
+                for a in sub.get_list("add_attacker"):
+                    if isinstance(a, str) and a not in attackers:
+                        attackers.append(a)
+                for d in sub.get_list("add_defender"):
+                    if isinstance(d, str) and d not in defenders:
+                        defenders.append(d)
+
+                # Battles
+                for b in sub.get_list("battle"):
+                    if not isinstance(b, ClausewitzNode):
+                        continue
+                    bname = b.get_str("name") or "Unnamed Battle"
+                    bresult = b.get_str("result")
+                    loc_id = b.get_int("location")
+                    prov_info = prov_info_map.get(str(loc_id), {})
+                    prov_name = prov_info.get("name") or f"Province #{loc_id}"
+
+                    att_node = b.get_node("attacker")
+                    def_node = b.get_node("defender")
+                    if not att_node or not def_node:
+                        continue
+
+                    att_tag = att_node.get_str("country")
+                    def_tag = def_node.get_str("country")
+
+                    is_naval = any(att_node.get_int(st) > 0 for st in ("heavy_ship", "light_ship", "galley", "transport", "losses_heavy_ship", "losses_light_ship", "losses_galley", "losses_transport")) or \
+                               any(def_node.get_int(st) > 0 for st in ("heavy_ship", "light_ship", "galley", "transport", "losses_heavy_ship", "losses_light_ship", "losses_galley", "losses_transport"))
+
+                    att_losses = att_node.get_int("losses")
+                    def_losses = def_node.get_int("losses")
+
+                    att_inf = att_node.get_int("infantry")
+                    att_cav = att_node.get_int("cavalry")
+                    att_art = att_node.get_int("artillery")
+                    att_heavy = att_node.get_int("heavy_ship")
+                    att_light = att_node.get_int("light_ship")
+                    att_galley = att_node.get_int("galley")
+                    att_trans = att_node.get_int("transport")
+                    att_cmdr = att_node.get_str("commander")
+
+                    def_inf = def_node.get_int("infantry")
+                    def_cav = def_node.get_int("cavalry")
+                    def_art = def_node.get_int("artillery")
+                    def_heavy = def_node.get_int("heavy_ship")
+                    def_light = def_node.get_int("light_ship")
+                    def_galley = def_node.get_int("galley")
+                    def_trans = def_node.get_int("transport")
+                    def_cmdr = def_node.get_str("commander")
+
+                    att_total = (att_heavy + att_light + att_galley + att_trans) if is_naval else (att_inf + att_cav + att_art)
+                    def_total = (def_heavy + def_light + def_galley + def_trans) if is_naval else (def_inf + def_cav + def_art)
+
+                    attacker_won = (bresult == "yes")
+                    winner_tag = att_tag if attacker_won else def_tag
+                    winner_side = "Attacker" if attacker_won else "Defender"
+
+                    if att_losses > 0 and def_losses > 0:
+                        b_ratio_str = f"1 : {def_losses / att_losses:.1f}" if att_losses <= def_losses else f"{att_losses / def_losses:.1f} : 1"
+                        b_raw_ratio = round(att_losses / def_losses, 2)
+                    elif att_losses > 0:
+                        b_ratio_str = "Attacker only"
+                        b_raw_ratio = 999.0
+                    elif def_losses > 0:
+                        b_ratio_str = "Defender only"
+                        b_raw_ratio = 0.001
+                    else:
+                        b_ratio_str = "0 : 0"
+                        b_raw_ratio = 1.0
+
+                    battle_has_player = (att_tag in all_player_tags) or (def_tag in all_player_tags)
+
+                    battle_obj = {
+                        "war_id": "",  # Will be set after war filtering
+                        "war_name": wname,
+                        "battle_name": bname,
+                        "date": dk,
+                        "location_id": loc_id,
+                        "province_name": prov_name,
+                        "is_naval": is_naval,
+                        "type_label": "⚓ Naval" if is_naval else "⚔️ Land",
+                        "attacker_tag": att_tag,
+                        "attacker_name": tag_names.get(att_tag, att_tag),
+                        "attacker_player": player_tag_map.get(att_tag, {}).get("player", ""),
+                        "attacker_commander": att_cmdr,
+                        "attacker_total": att_total,
+                        "attacker_inf": att_inf,
+                        "attacker_cav": att_cav,
+                        "attacker_art": att_art,
+                        "attacker_heavy": att_heavy,
+                        "attacker_light": att_light,
+                        "attacker_galley": att_galley,
+                        "attacker_trans": att_trans,
+                        "attacker_losses": att_losses,
+                        "attacker_losses_inf": att_node.get_int("losses_infantry"),
+                        "attacker_losses_cav": att_node.get_int("losses_cavalry"),
+                        "attacker_losses_art": att_node.get_int("losses_artillery"),
+                        "attacker_losses_heavy": att_node.get_int("losses_heavy_ship"),
+                        "attacker_losses_light": att_node.get_int("losses_light_ship"),
+                        "attacker_losses_galley": att_node.get_int("losses_galley"),
+                        "attacker_losses_trans": att_node.get_int("losses_transport"),
+                        "defender_tag": def_tag,
+                        "defender_name": tag_names.get(def_tag, def_tag),
+                        "defender_player": player_tag_map.get(def_tag, {}).get("player", ""),
+                        "defender_commander": def_cmdr,
+                        "defender_total": def_total,
+                        "defender_inf": def_inf,
+                        "defender_cav": def_cav,
+                        "defender_art": def_art,
+                        "defender_heavy": def_heavy,
+                        "defender_light": def_light,
+                        "defender_galley": def_galley,
+                        "defender_trans": def_trans,
+                        "defender_losses": def_losses,
+                        "defender_losses_inf": def_node.get_int("losses_infantry"),
+                        "defender_losses_cav": def_node.get_int("losses_cavalry"),
+                        "defender_losses_art": def_node.get_int("losses_artillery"),
+                        "defender_losses_heavy": def_node.get_int("losses_heavy_ship"),
+                        "defender_losses_light": def_node.get_int("losses_light_ship"),
+                        "defender_losses_galley": def_node.get_int("losses_galley"),
+                        "defender_losses_trans": def_node.get_int("losses_transport"),
+                        "total_losses": att_losses + def_losses,
+                        "winner_side": winner_side,
+                        "winner_tag": winner_tag,
+                        "winner_name": tag_names.get(winner_tag, winner_tag),
+                        "winner_player": player_tag_map.get(winner_tag, {}).get("player", ""),
+                        "loss_ratio_str": b_ratio_str,
+                        "raw_loss_ratio": b_raw_ratio,
+                        "has_player": battle_has_player,
+                    }
+                    battles_in_war.append(battle_obj)
+
+        if orig_att and orig_att not in attackers:
+            attackers.insert(0, orig_att)
+        if orig_def and orig_def not in defenders:
+            defenders.insert(0, orig_def)
+        for a in w.get_list("attackers"):
+            if isinstance(a, str) and a not in attackers:
+                attackers.append(a)
+        for d in w.get_list("defenders"):
+            if isinstance(d, str) and d not in defenders:
+                defenders.append(d)
+
+        war_has_player = bool((set(attackers) | set(defenders)) & all_player_tags)
+        if not war_has_player:
+            continue
+
+        war_id = f"war_{len(extracted_wars) + 1}"
+
+        att_combat_loss = 0
+        att_attr_loss = 0
+        def_combat_loss = 0
+        def_attr_loss = 0
+
+        parts = w.get_list("participants")
+        for p in parts:
+            if not isinstance(p, ClausewitzNode):
+                continue
+            ptag = p.get_str("tag")
+            lnode = p.get_node("losses")
+            mnode = lnode.get_node("members") if lnode else None
+            vals = [int(x) for x in mnode.array if str(x).isdigit()] if mnode else []
+            c_loss = sum(vals[0:3]) if len(vals) >= 3 else 0
+            a_loss = sum(vals[3:6]) if len(vals) >= 6 else 0
+
+            if ptag in attackers or ptag == orig_att:
+                att_combat_loss += c_loss
+                att_attr_loss += a_loss
+            elif ptag in defenders or ptag == orig_def:
+                def_combat_loss += c_loss
+                def_attr_loss += a_loss
+            else:
+                att_combat_loss += c_loss
+                att_attr_loss += a_loss
+
+        if att_combat_loss == 0 and def_combat_loss == 0 and battles_in_war:
+            for b in battles_in_war:
+                if b["attacker_tag"] in attackers:
+                    att_combat_loss += b["attacker_losses"]
+                if b["defender_tag"] in defenders:
+                    def_combat_loss += b["defender_losses"]
+
+        att_total_loss = att_combat_loss + att_attr_loss
+        def_total_loss = def_combat_loss + def_attr_loss
+
+        if att_total_loss > 0 and def_total_loss > 0:
+            ratio_str = f"1 : {def_total_loss / att_total_loss:.1f}" if att_total_loss <= def_total_loss else f"{att_total_loss / def_total_loss:.1f} : 1"
+            raw_ratio = round(att_total_loss / def_total_loss, 2)
+        elif att_total_loss > 0:
+            ratio_str = "Attacker only"
+            raw_ratio = 999.0
+        elif def_total_loss > 0:
+            ratio_str = "Defender only"
+            raw_ratio = 0.001
+        else:
+            ratio_str = "0 : 0"
+            raw_ratio = 1.0
+
+        outcome = w.get_str("outcome")
+        if is_active:
+            winner_str = "⚔️ Ongoing"
+            winner_side = "Ongoing"
+        elif outcome == "2":
+            lead_att = attackers[0] if attackers else orig_att
+            p_name = player_tag_map.get(lead_att, {}).get("player", "")
+            lead_display = f"{lead_att} ({p_name})" if p_name else lead_att
+            winner_str = f"🏆 Attacker ({lead_display})"
+            winner_side = "Attacker"
+        elif outcome == "3":
+            lead_def = defenders[0] if defenders else orig_def
+            p_name = player_tag_map.get(lead_def, {}).get("player", "")
+            lead_display = f"{lead_def} ({p_name})" if p_name else lead_def
+            winner_str = f"🏆 Defender ({lead_display})"
+            winner_side = "Defender"
+        elif outcome == "1":
+            winner_str = "🕊️ White Peace"
+            winner_side = "White Peace"
+        else:
+            winner_str = "🕊️ Peace"
+            winner_side = "Peace"
+
+        att_list = []
+        for a in attackers:
+            pinfo = player_tag_map.get(a)
+            att_list.append({
+                "tag": a,
+                "name": tag_names.get(a, a),
+                "is_player": bool(pinfo),
+                "player": pinfo["player"] if pinfo else "",
+                "is_leader": (a == orig_att or a == attackers[0]),
+            })
+
+        def_list = []
+        for d in defenders:
+            pinfo = player_tag_map.get(d)
+            def_list.append({
+                "tag": d,
+                "name": tag_names.get(d, d),
+                "is_player": bool(pinfo),
+                "player": pinfo["player"] if pinfo else "",
+                "is_leader": (d == orig_def or d == defenders[0]),
+            })
+
+        war_obj = {
+            "id": war_id,
+            "name": wname,
+            "start_date": start_date or "1444.11.11",
+            "end_date": end_date or ("Ongoing" if is_active else "1444.11.11"),
+            "is_active": is_active,
+            "attackers": att_list,
+            "defenders": def_list,
+            "winner_str": winner_str,
+            "winner_side": winner_side,
+            "total_losses": att_total_loss + def_total_loss,
+            "total_combat_losses": att_combat_loss + def_combat_loss,
+            "total_attrition_losses": att_attr_loss + def_attr_loss,
+            "attacker_combat_losses": att_combat_loss,
+            "attacker_attrition_losses": att_attr_loss,
+            "attacker_total_losses": att_total_loss,
+            "defender_combat_losses": def_combat_loss,
+            "defender_attrition_losses": def_attr_loss,
+            "defender_total_losses": def_total_loss,
+            "loss_ratio_str": ratio_str,
+            "raw_loss_ratio": raw_ratio,
+            "battles_count": len(battles_in_war),
+        }
+        extracted_wars.append(war_obj)
+
+        for b in battles_in_war:
+            b["war_id"] = war_id
+            b["war_attackers"] = att_list
+            b["war_defenders"] = def_list
+            extracted_battles.append(b)
+
+    extracted_wars.sort(key=lambda w: w["total_losses"], reverse=True)
+    extracted_wars.sort(key=lambda w: 0 if w["is_active"] else 1)
+    extracted_battles.sort(key=lambda b: b["total_losses"], reverse=True)
+
+    return extracted_wars, extracted_battles
 
 
 def enrich_with_historical_ideas(

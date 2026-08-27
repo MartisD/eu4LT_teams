@@ -130,47 +130,23 @@ def dev_heatmap_color(t: float) -> tuple[int, int, int]:
 
 
 def casualties_heatmap_color(t: float) -> tuple[int, int, int]:
-    """Casualties gradient: Slate Grey (lowest, t=0.0) -> Amber/Orange -> Deep Crimson (highest, t=1.0)."""
+    """Casualties gradient: Baseline unowned grey (42, 52, 68) -> Team 2 Red (239, 68, 68)."""
     t = max(0.0, min(1.0, float(t)))
-    keyframes = [
-        (0.00, (75, 85, 99)),    # Low / Baseline: Slate Grey (#4b5563)
-        (0.30, (217, 119, 6)),   # Moderate: Amber (#d97706)
-        (0.65, (239, 68, 68)),   # Heavy: Vivid Red (#ef4444)
-        (1.00, (153, 27, 27)),   # Extreme: Deep Crimson (#991b1b)
-    ]
-    for i in range(len(keyframes) - 1):
-        v0, c0 = keyframes[i]
-        v1, c1 = keyframes[i + 1]
-        if v0 <= t <= v1:
-            local_t = (t - v0) / (v1 - v0)
-            smooth_t = local_t * local_t * (3.0 - 2.0 * local_t)
-            r = int(c0[0] + (c1[0] - c0[0]) * smooth_t)
-            g = int(c0[1] + (c1[1] - c0[1]) * smooth_t)
-            b = int(c0[2] + (c1[2] - c0[2]) * smooth_t)
-            return (r, g, b)
-    return keyframes[-1][1]
+    smooth_t = t * t * (3.0 - 2.0 * t)
+    r = int(UNCOLONIZED_COLOR[0] + (TEAM_2_COLOR[0] - UNCOLONIZED_COLOR[0]) * smooth_t)
+    g = int(UNCOLONIZED_COLOR[1] + (TEAM_2_COLOR[1] - UNCOLONIZED_COLOR[1]) * smooth_t)
+    b = int(UNCOLONIZED_COLOR[2] + (TEAM_2_COLOR[2] - UNCOLONIZED_COLOR[2]) * smooth_t)
+    return (r, g, b)
 
 
 def devastation_heatmap_color(t: float) -> tuple[int, int, int]:
-    """Devastation gradient: Grey (0%) -> Orange (30%) -> Vivid Red (70%) -> Deep Crimson (100%)."""
+    """Devastation gradient: 0% unowned grey (42, 52, 68) -> 100% Team 2 Red (239, 68, 68)."""
     t = max(0.0, min(1.0, float(t)))
-    keyframes = [
-        (0.00, (75, 85, 99)),    # 0% Devastation: Slate Grey (#4b5563)
-        (0.30, (249, 115, 22)),  # 30% Devastation: Burning Orange (#f97316)
-        (0.70, (239, 68, 68)),   # 70% Devastation: Fiery Red (#ef4444)
-        (1.00, (153, 27, 27)),   # 100% Devastation: Ruined Crimson (#991b1b)
-    ]
-    for i in range(len(keyframes) - 1):
-        v0, c0 = keyframes[i]
-        v1, c1 = keyframes[i + 1]
-        if v0 <= t <= v1:
-            local_t = (t - v0) / (v1 - v0)
-            smooth_t = local_t * local_t * (3.0 - 2.0 * local_t)
-            r = int(c0[0] + (c1[0] - c0[0]) * smooth_t)
-            g = int(c0[1] + (c1[1] - c0[1]) * smooth_t)
-            b = int(c0[2] + (c1[2] - c0[2]) * smooth_t)
-            return (r, g, b)
-    return keyframes[-1][1]
+    smooth_t = t * t * (3.0 - 2.0 * t)
+    r = int(UNCOLONIZED_COLOR[0] + (TEAM_2_COLOR[0] - UNCOLONIZED_COLOR[0]) * smooth_t)
+    g = int(UNCOLONIZED_COLOR[1] + (TEAM_2_COLOR[1] - UNCOLONIZED_COLOR[1]) * smooth_t)
+    b = int(UNCOLONIZED_COLOR[2] + (TEAM_2_COLOR[2] - UNCOLONIZED_COLOR[2]) * smooth_t)
+    return (r, g, b)
 
 
 def prosperity_color(t: float) -> tuple[int, int, int]:
@@ -310,22 +286,40 @@ def generate_interactive_map_data(
                 "waste": True,
             }
         elif not is_sea:
-            client_provinces[pid] = {
-                "name": pinfo.get("name", f"Province #{pid}"),
-                "owner": owner,
-                "player": player,
-                "dev": pinfo.get("dev", 0),
-                "coastal": pid in coastal_provinces,
-                "tg": pinfo.get("tg", ""),
-                "aut": pinfo.get("aut", 0),
-                "tc": bool(pinfo.get("tc")),
-                "cas": pinfo.get("casualties", 0),
-                "bat": pinfo.get("battles", 0),
-                "top_b": pinfo.get("top_battle", ""),
-                "devastation": pinfo.get("devastation", 0.0),
-                "prosperity": pinfo.get("prosperity", 0.0),
-                "area": pinfo.get("area", ""),
-            }
+            entry = {"name": pinfo.get("name", f"Province #{pid}")}
+            if owner:
+                entry["owner"] = owner
+            if player:
+                entry["player"] = player
+            pdev = pinfo.get("dev", 0)
+            if pdev:
+                entry["dev"] = pdev
+            if pid in coastal_provinces:
+                entry["coastal"] = 1
+            ptg = pinfo.get("tg", "")
+            if ptg:
+                entry["tg"] = ptg
+            paut = pinfo.get("aut", 0)
+            if paut:
+                entry["aut"] = paut
+            if pinfo.get("tc"):
+                entry["tc"] = 1
+            pcas = pinfo.get("casualties", 0)
+            if pcas:
+                entry["cas"] = pcas
+            pbat = pinfo.get("battles", 0)
+            if pbat:
+                entry["bat"] = pbat
+            pdeva = pinfo.get("devastation", 0.0)
+            if pdeva:
+                entry["devastation"] = pdeva
+            ppros = pinfo.get("prosperity", 0.0)
+            if ppros:
+                entry["prosperity"] = ppros
+            parea = pinfo.get("area", "")
+            if parea:
+                entry["area"] = parea
+            client_provinces[pid] = entry
 
         # Calculate colors for all 6 modes
         if is_sea:
@@ -409,7 +403,7 @@ def generate_interactive_map_data(
         "provinces_id_west_b64": prov_id_west_b64,
         "provinces_id_east_b64": prov_id_east_b64,
         "palette_b64": palette_b64,
-        "provinces_json": json.dumps(client_provinces),
+        "provinces_json": json.dumps(client_provinces, separators=(',', ':')),
         "total_provinces": len(client_provinces),
         "min_dev": round(min_dev, 1),
         "max_dev": round(max_dev, 1),

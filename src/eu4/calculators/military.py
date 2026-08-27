@@ -104,6 +104,14 @@ def calc_heavy_ship_combat_ability(country: CountryData, game_data: GameData) ->
     return ModifierResult(total=total, breakdown=bd)
 
 
+def calc_light_ship_combat_ability(country: CountryData, game_data: GameData) -> ModifierResult:
+    """Compute light (trade) ship combat ability."""
+    keys = ("light_ship_power", "light_ship_combat_ability")
+    total = country.get_modifier(*keys)
+    bd = [(e["source"], e["value"]) for e in country.get_breakdown(*keys)]
+    return ModifierResult(total=total, breakdown=bd)
+
+
 def calc_siege_ability(country: CountryData, game_data: GameData) -> ModifierResult:
     """Compute siege ability."""
     total = country.get_modifier("siege_ability")

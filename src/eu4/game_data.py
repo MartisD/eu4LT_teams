@@ -45,6 +45,14 @@ class IdeaGroup:
 
 
 @dataclass
+class CrownlandBonus:
+    key: str
+    range_from: float
+    range_to: float
+    modifiers: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass
 class GameData:
     # idea_group_name → IdeaGroup
     idea_groups: dict[str, IdeaGroup] = field(default_factory=dict)
@@ -94,6 +102,8 @@ class GameData:
     tech_years: dict[str, list[int]] = field(default_factory=dict)
     # naval_doctrine_name → {modifier_key: value}
     naval_doctrines: dict[str, dict[str, float]] = field(default_factory=dict)
+    # crownland bonus tiers from common/estate_crown_land/*.txt
+    crownland_bonuses: list[CrownlandBonus] = field(default_factory=list)
 
     def get_advisor_type_name(self, type_int: int) -> Optional[str]:
         return self.advisor_type_names.get(type_int)
@@ -512,6 +522,30 @@ def _load_tech_years_file(path: str, tech_type: str, data: GameData) -> None:
         pass
 
 
+def _load_crownland_file(path: str, data: GameData) -> None:
+    """Load common/estate_crown_land/*.txt bonus tiers."""
+    with open(path, encoding="utf-8", errors="ignore") as f:
+        root = parse(f.read())
+    bonus_nodes = root.get_list("bonus")
+    file_bonuses: list[CrownlandBonus] = []
+    for bnode in bonus_nodes:
+        if not isinstance(bnode, ClausewitzNode):
+            continue
+        key = bnode.get_str("key")
+        r_from = bnode.get_float("range_from")
+        r_to = bnode.get_float("range_to")
+        mod_node = bnode.get_node("modifier")
+        mods = _parse_modifier_block(mod_node) if mod_node else {}
+        if mods and r_to > r_from:
+            file_bonuses.append(CrownlandBonus(key=key, range_from=r_from, range_to=r_to, modifiers=mods))
+
+    if not hasattr(data, "_crownland_files"):
+        data._crownland_files = {}
+    fname = os.path.basename(path)
+    data._crownland_files[fname] = file_bonuses
+    data.crownland_bonuses = [b for b_list in data._crownland_files.values() for b in b_list]
+
+
 def _load_directory(dir_path: str, loader_fn, data: GameData) -> None:
     if not os.path.isdir(dir_path):
         return
@@ -626,6 +660,11 @@ def load_game_data(base_path: str, mod_paths: list[str] | None = None) -> GameDa
         _load_directory(
             os.path.join(root_path, "common", "naval_doctrines"),
             _load_naval_doctrines_file,
+            data,
+        )
+        _load_directory(
+            os.path.join(root_path, "common", "estate_crown_land"),
+            _load_crownland_file,
             data,
         )
 

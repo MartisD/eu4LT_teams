@@ -435,13 +435,7 @@ class ModifierEngine:
             if not apply_static_modifier("mercantilism_modifier", merc / 100.0, f"Mercantilism ({merc:.1f}%)", category="mercantilism"):
                 apply_static_modifier("mercantilism", merc / 100.0, f"Mercantilism ({merc:.1f}%)", fallback_mods={"global_prov_trade_power_modifier": 2.0, "embargo_efficiency": 0.50, "trade_steering": 0.25, "trade_efficiency": 0.10}, category="mercantilism")
 
-        # 18. Army Professionalism (0.0 to 1.0)
-        prof = min(1.0, max(0.0, country.army_professionalism))
-        if prof > 0:
-            if not apply_static_modifier("army_professionalism", prof, f"Army Professionalism ({prof*100:.1f}%)", category="army_professionalism"):
-                apply_static_modifier("army_professionalism_modifier", prof, f"Army Professionalism ({prof*100:.1f}%)", fallback_mods={"discipline": 0.05, "siege_ability": 0.20, "fire_damage": 0.10, "shock_damage": 0.10, "drill_decay_modifier": -0.50}, category="army_professionalism")
-
-        # 19. Absolutism (0 to 100+)
+        # 18. Absolutism (0 to 100+)
         abs_val = max(0.0, country.absolutism)
         if abs_val > 0:
             apply_static_modifier("absolutism", abs_val / 100.0, f"Absolutism ({abs_val:.1f})", fallback_mods={"discipline": 0.05, "administrative_efficiency": 0.30, "core_decay_on_your_own": -0.50})
@@ -566,6 +560,13 @@ class ModifierEngine:
         if drill > 0:
             drill_scale = drill / 100.0
             apply_static_modifier("regiment_drill_modifier", drill_scale, f"Army Drill ({drill:.1f}%)", fallback_mods={"fire_damage": 0.15, "shock_damage": 0.15, "fire_damage_received": -0.25, "shock_damage_received": -0.25, "movement_speed": 0.25})
+
+        # 33. Crownland Ownership
+        cl = getattr(country, "crownland", 0.0)
+        for cbonus in getattr(game_data, "crownland_bonuses", []):
+            if cbonus.range_from <= cl < cbonus.range_to:
+                merge_dict(cbonus.modifiers, "crownland", desc=f"Crownland ({cl:.1f}%)")
+                break
 
         # Save into country compiled state
         country.compiled_modifiers = mods

@@ -30,6 +30,7 @@ from eu4.calculators.military import (
     calc_fire_damage,
     calc_galley_combat_ability,
     calc_heavy_ship_combat_ability,
+    calc_light_ship_combat_ability,
     calc_infantry_combat_ability,
     calc_manpower_recovery_speed,
     calc_morale_armies,
@@ -63,16 +64,28 @@ TEAM_2_NAME = "METASVYDO KOMANDA"
 
 TEAM_1_ROLES = {
     "SPA": "NAVAL",
+    "CAS": "NAVAL",
+    "ARA": "NAVAL",
     "FRA": "QUANTITY",
+    "BUR": "QUANTITY",
     "HAB": "QUALITY",
     "MUG": "BLOB",
+    "TIM": "BLOB",
+    "QOM": "BLOB",
 }
 
 TEAM_2_ROLES = {
     "MLC": "NAVAL",
+    "MAY": "NAVAL",
     "RUS": "QUANTITY",
+    "NOV": "QUANTITY",
+    "MOS": "QUANTITY",
     "BAH": "QUALITY",
+    "DEC": "QUALITY",
+    "HND": "QUALITY",
     "QNG": "BLOB",
+    "MCH": "BLOB",
+    "MHX": "BLOB",
 }
 
 TAG_TO_TEAM_ROLE = {}
@@ -138,6 +151,7 @@ _COMPUTED_STATS: list[tuple[str, object]] = [
     ("shock_damage",            calc_shock_damage),
     ("galley_ca",               calc_galley_combat_ability),
     ("heavy_ship_ca",           calc_heavy_ship_combat_ability),
+    ("light_ship_ca",           calc_light_ship_combat_ability),
     ("siege_ability",           calc_siege_ability),
     ("naval_morale",            calc_naval_morale),
     ("production_efficiency",   calc_production_efficiency),
@@ -184,6 +198,11 @@ def _format_val(val: Any, fmt: str) -> str:
 
 def _process_country_data(cd: CountryData, game_data: GameData | None, most_dev_tag: str, tag_names: dict[str, str] | None = None) -> dict:
     team_role = TAG_TO_TEAM_ROLE.get(cd.tag)
+    if not team_role:
+        for prev_t in getattr(cd, "tag_history", []):
+            if prev_t in TAG_TO_TEAM_ROLE:
+                team_role = TAG_TO_TEAM_ROLE[prev_t]
+                break
     team = team_role[0] if team_role else "Other"
     role = team_role[1] if team_role else "NONE"
 
@@ -192,6 +211,7 @@ def _process_country_data(cd: CountryData, game_data: GameData | None, most_dev_
         "player":                 cd.player,
         "team":                   team,
         "role":                   role,
+        "tag_history":            getattr(cd, "tag_history", [cd.tag]),
         "development":            cd.raw_development,
         "starting_development":   cd.starting_development,
         "army_tradition":         cd.army_tradition,
@@ -219,6 +239,11 @@ def _process_country_data(cd: CountryData, game_data: GameData | None, most_dev_
         "colonial_regions_controlled": cd.colonial_regions_controlled,
         "province_count":         cd.province_count,
         "dev_clicks":             cd.dev_clicks,
+        "dev_spent_adm":          getattr(cd, "dev_spent_adm", 0),
+        "dev_spent_dip":          getattr(cd, "dev_spent_dip", 0),
+        "dev_spent_mil":          getattr(cd, "dev_spent_mil", 0),
+        "dev_spent_total":        getattr(cd, "dev_spent_total", 0),
+        "avg_dev_cost":           round(getattr(cd, "avg_dev_cost", 0.0), 1),
         "used_governing_capacity": cd.used_governing_capacity,
         "hegemony":               cd.hegemony,
         "is_naval_hegemon":       cd.hegemony.lower() == "naval",
@@ -226,6 +251,7 @@ def _process_country_data(cd: CountryData, game_data: GameData | None, most_dev_
         "is_economy_hegemon":     cd.hegemony.lower() in ("economy", "economic"),
         "active_policies":        cd.active_policies,
         "estate_privileges":      cd.estate_privileges,
+        "crownland":              round(getattr(cd, "crownland", 0.0), 1),
         "estates":                [{"name": e[0].replace("estate_", "").replace("_", " ").title(), "loyalty": e[1], "territory": e[2]} for e in cd.estates],
         "monarch_personalities":  cd.monarch_personalities,
         "adm_tech":               cd.adm_tech,
@@ -254,7 +280,26 @@ def _process_country_data(cd: CountryData, game_data: GameData | None, most_dev_
         "accepted_culture_count": getattr(cd, "accepted_culture_count", 0),
         "accepted_cultures":      [c.title() for c in getattr(cd, "accepted_cultures", [])],
         "is_defender_of_faith":   cd.is_defender_of_faith,
-        "total_income":           cd.estimated_monthly_income,
+        "total_income":           round(getattr(cd, "total_income", cd.estimated_monthly_income), 2),
+        "total_expenses":         round(getattr(cd, "total_expenses", 0.0), 2),
+        "net_income":             round(getattr(cd, "net_income", 0.0), 2),
+        "income_breakdown":       getattr(cd, "income_breakdown", {}),
+        "tax_income":             round(getattr(cd, "income_breakdown", {}).get("tax", 0.0), 2),
+        "prod_income":            round(getattr(cd, "income_breakdown", {}).get("production", 0.0), 2),
+        "trade_income":           round(getattr(cd, "income_breakdown", {}).get("trade", 0.0), 2),
+        "gold_income":            round(getattr(cd, "income_breakdown", {}).get("gold", 0.0), 2),
+        "tariffs_income":         round(getattr(cd, "income_breakdown", {}).get("tariffs", 0.0), 2),
+        "vassal_income":          round(getattr(cd, "income_breakdown", {}).get("vassals", 0.0), 2),
+        "other_income":           round(getattr(cd, "income_breakdown", {}).get("other", 0.0), 2),
+        "real_development":       round(getattr(cd, "real_development", cd.raw_development), 1),
+        "avg_development":        round(getattr(cd, "avg_development", 0.0), 1),
+        "avg_real_development":   round(getattr(cd, "avg_real_development", 0.0), 1),
+        "base_manpower_sum":      getattr(cd, "base_manpower_sum", 0.0),
+        "current_manpower":       round(getattr(cd, "current_manpower", 0.0), 0),
+        "current_units":          getattr(cd, "current_units", 0),
+        "institutions":           getattr(cd, "institutions", []),
+        "institutions_count":     getattr(cd, "institutions_count", 0),
+        "institutions_str":       ", ".join(getattr(cd, "institutions", [])) if getattr(cd, "institutions", []) else "None",
         "treasury":               cd.treasury,
         "advisors":               [{"name": adv.job_type_name or (game_data.get_advisor_type_name(adv.type_int) if game_data else str(adv.type_int)), "skill": adv.skill} for adv in cd.advisors],
     }
@@ -297,6 +342,8 @@ def _clean_breakdown_label(lbl: str) -> str:
         return "Army Professionalism"
     if lbl_s in ("regiment_drill_modifier", "army_drill"):
         return "Army Drill"
+    if lbl_s.startswith("crownland"):
+        return "Crownland Ownership"
     if lbl_s.startswith("estate_loyalty:"):
         ename = lbl_s.replace("estate_loyalty:estate_", "").replace("estate_loyalty:", "").replace("_", " ").title()
         return f"{ename} Estate"
@@ -409,6 +456,14 @@ def _compute_matchups(country_map: dict[str, dict]) -> tuple[dict, dict, list[di
     role_to_t1 = {"NAVAL": "SPA", "QUANTITY": "FRA", "QUALITY": "HAB", "BLOB": "MUG"}
     role_to_t2 = {"NAVAL": "MLC", "QUANTITY": "RUS", "QUALITY": "BAH", "BLOB": "QNG"}
 
+    def _get_country(target_tag: str) -> dict | None:
+        if target_tag in country_map:
+            return country_map[target_tag]
+        for c in country_map.values():
+            if target_tag in c.get("tag_history", []):
+                return c
+        return None
+
     team1_total = 0
     team2_total = 0
     matchups = []
@@ -416,8 +471,8 @@ def _compute_matchups(country_map: dict[str, dict]) -> tuple[dict, dict, list[di
     for role in roles:
         t1_tag = role_to_t1[role]
         t2_tag = role_to_t2[role]
-        c1 = country_map.get(t1_tag)
-        c2 = country_map.get(t2_tag)
+        c1 = _get_country(t1_tag)
+        c2 = _get_country(t2_tag)
 
         role_t1_score = 0
         role_t2_score = 0
@@ -505,15 +560,18 @@ def _compute_matchups(country_map: dict[str, dict]) -> tuple[dict, dict, list[di
     for c in country_map.values():
         c.setdefault("score", 0)
 
+    t1_countries = [_get_country(tag) for tag in ["SPA", "FRA", "HAB", "MUG"]]
+    t2_countries = [_get_country(tag) for tag in ["MLC", "RUS", "BAH", "QNG"]]
+
     team1_summary = {
         "name": TEAM_1_NAME,
         "score": team1_total,
-        "countries": [country_map.get(tag) for tag in ["SPA", "FRA", "HAB", "MUG"] if tag in country_map],
+        "countries": [c for c in t1_countries if c is not None],
     }
     team2_summary = {
         "name": TEAM_2_NAME,
         "score": team2_total,
-        "countries": [country_map.get(tag) for tag in ["MLC", "RUS", "BAH", "QNG"] if tag in country_map],
+        "countries": [c for c in t2_countries if c is not None],
     }
 
     return team1_summary, team2_summary, matchups
@@ -748,6 +806,32 @@ def main() -> None:
     env = Environment(
         loader=FileSystemLoader(os.path.join(script_dir, "templates"))
     )
+
+    def filter_format_k(val):
+        if val is None:
+            return "0"
+        try:
+            v = float(val)
+        except (ValueError, TypeError):
+            return str(val)
+        if abs(v) >= 100000:
+            return f"{int(round(v / 1000.0))}k"
+        elif abs(v) >= 1000:
+            formatted = f"{v / 1000.0:.1f}k"
+            return formatted.replace(".0k", "k")
+        return f"{int(round(v))}"
+
+    def filter_format_comma(val):
+        if val is None:
+            return "0"
+        try:
+            return f"{int(round(float(val))):,}"
+        except (ValueError, TypeError):
+            return str(val)
+
+    env.filters["format_k"] = filter_format_k
+    env.filters["format_comma"] = filter_format_comma
+
     template = env.get_template("report_template.html")
     html = template.render(
         team1=team1_summary,
@@ -757,12 +841,145 @@ def main() -> None:
         most_dev_province=most_dev,
         game_data_loaded=game_data is not None,
         map_data=map_data,
+        wars=extra.get("wars", []),
+        battles=extra.get("battles", []),
     )
 
     output_path = os.path.join(os.path.dirname(script_dir), "index.html")
+    min_output_path = os.path.join(os.path.dirname(script_dir), "index.min.html")
+
+    minified_html = minify_html(html)
+
+    # index.html receives the full, clean unminified HTML
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"Report written -> {output_path}")
+    # index.min.html receives the minified HTML
+    with open(min_output_path, "w", encoding="utf-8") as f:
+        f.write(minified_html)
+
+    orig_len = len(html.encode("utf-8"))
+    min_len = len(minified_html.encode("utf-8"))
+    print(f"Report written -> {output_path} ({orig_len / (1024*1024):.2f} MB) and {min_output_path} ({min_len / (1024*1024):.2f} MB, saved {(orig_len - min_len)/1024:.1f} KB)")
+
+
+def minify_html(html: str) -> str:
+    """Minify HTML, CSS, and JS to reduce standalone file size."""
+    scripts = []
+    def save_script(m):
+        raw_script = m.group(1)
+        min_script = minify_js(raw_script)
+        scripts.append(f"<script>{min_script}</script>")
+        return f"___SCRIPT_{len(scripts)-1}___"
+
+    styles = []
+    def save_style(m):
+        raw_style = m.group(1)
+        min_style = minify_css(raw_style)
+        styles.append(f"<style>{min_style}</style>")
+        return f"___STYLE_{len(styles)-1}___"
+
+    # Protect and minify script and style tags
+    html = re.sub(r'<script\b[^>]*>([\s\S]*?)<\/script>', save_script, html, flags=re.IGNORECASE)
+    html = re.sub(r'<style\b[^>]*>([\s\S]*?)<\/style>', save_style, html, flags=re.IGNORECASE)
+
+    # Remove HTML comments
+    html = re.sub(r'<!--(?!\[if)[\s\S]*?-->', '', html)
+
+    # Collapse HTML whitespace
+    html = re.sub(r'>\s+<', '><', html)
+    html = re.sub(r'\s{2,}', ' ', html)
+
+    # Restore styles and scripts
+    for i, style in enumerate(styles):
+        html = html.replace(f"___STYLE_{i}___", style)
+    for i, script in enumerate(scripts):
+        html = html.replace(f"___SCRIPT_{i}___", script)
+
+    return html.strip()
+
+
+def minify_css(css: str) -> str:
+    css = re.sub(r'/\*[\s\S]*?\*/', '', css)
+    css = re.sub(r'\s*([\{\}\:\;\,])\s*', r'\1', css)
+    css = re.sub(r';\}', '}', css)
+    return css.strip()
+
+
+def minify_js(js: str) -> str:
+    """Safe JS minifier that strips comments, trims indentation, and preserves strings/templates."""
+    strings = []
+    def save_string(s):
+        strings.append(s)
+        return f"___JSSTR_{len(strings)-1}___"
+
+    tokens = []
+    i = 0
+    n = len(js)
+
+    while i < n:
+        c = js[i]
+
+        # Single-line comment
+        if c == '/' and i + 1 < n and js[i+1] == '/':
+            i += 2
+            while i < n and js[i] not in ('\n', '\r'):
+                i += 1
+            continue
+
+        # Multi-line comment
+        if c == '/' and i + 1 < n and js[i+1] == '*':
+            i += 2
+            while i + 1 < n and not (js[i] == '*' and js[i+1] == '/'):
+                i += 1
+            i += 2
+            continue
+
+        # String literal (single or double quote)
+        if c in ("'", '"'):
+            quote = c
+            s_buf = [c]
+            i += 1
+            while i < n:
+                sc = js[i]
+                s_buf.append(sc)
+                i += 1
+                if sc == '\\':
+                    if i < n:
+                        s_buf.append(js[i])
+                        i += 1
+                elif sc == quote:
+                    break
+            tokens.append(save_string(''.join(s_buf)))
+            continue
+
+        # Template literal
+        if c == '`':
+            tpl_buf = ['`']
+            i += 1
+            while i < n:
+                tc = js[i]
+                tpl_buf.append(tc)
+                i += 1
+                if tc == '\\':
+                    if i < n:
+                        tpl_buf.append(js[i])
+                        i += 1
+                elif tc == '`':
+                    break
+            tokens.append(save_string(''.join(tpl_buf)))
+            continue
+
+        tokens.append(c)
+        i += 1
+
+    clean_js = ''.join(tokens)
+    lines = [l.strip() for l in clean_js.splitlines() if l.strip()]
+    res = '\n'.join(lines)
+
+    for idx, s in enumerate(strings):
+        res = res.replace(f"___JSSTR_{idx}___", s)
+
+    return res
 
 
 if __name__ == "__main__":
