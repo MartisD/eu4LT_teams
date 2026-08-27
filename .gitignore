@@ -1,3 +1,4 @@
 eu4_data
 eu4_data/*
 *.eu4
+__pycache__
