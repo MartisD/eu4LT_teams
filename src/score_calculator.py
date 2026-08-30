@@ -83,7 +83,6 @@ TEAM_2_ROLES = {
     "MSA": "NAVAL",
     "RUS": "QUANTITY",
     "NOV": "QUANTITY",
-    "MOS": "QUANTITY",
     "RUT": "QUANTITY",
     "BAH": "QUALITY",
     "DEC": "QUALITY",
@@ -475,7 +474,7 @@ def _compute_matchups(country_map: dict[str, dict]) -> tuple[dict, dict, list[di
             (TEAM_1_NAME, "QUALITY"): {"HAB", "AUS", "GER", "HRE"},
             (TEAM_1_NAME, "BLOB"): {"MUG", "TIM", "QOM"},
             (TEAM_2_NAME, "NAVAL"): {"MLC", "MAY", "MSA"},
-            (TEAM_2_NAME, "QUANTITY"): {"RUS", "NOV", "MOS", "RUT"},
+            (TEAM_2_NAME, "QUANTITY"): {"RUS", "NOV", "RUT"},
             (TEAM_2_NAME, "QUALITY"): {"BAH", "DEC", "HND", "SKE", "PUN", "BHA"},
             (TEAM_2_NAME, "BLOB"): {"QNG", "MCH", "MHX", "YUA", "MGE"},
         }
