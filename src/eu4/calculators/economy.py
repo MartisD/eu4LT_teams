@@ -44,7 +44,11 @@ def calc_governing_capacity(country: CountryData, game_data: GameData) -> Modifi
     (Base 200 + Tech + Flat Modifiers) * (1.0 + Percentage Modifiers).
     """
     base = 200.0
-    tech_cap = _adm_tech_gov_capacity(country.adm_tech)
+    if game_data and game_data.tech_cumulative_modifiers.get("adm"):
+        tech_cap = game_data.get_tech_base("adm", country.adm_tech, "governing_capacity", default=0.0)
+    else:
+        tech_cap = _adm_tech_gov_capacity(country.adm_tech)
+
     flat_mods = country.get_modifier("governing_capacity")
     pct_mods = country.get_modifier("governing_capacity_modifier")
 
@@ -77,8 +81,11 @@ def calc_goods_produced(country: CountryData, game_data: GameData) -> ModifierRe
 
 def calc_trade_efficiency(country: CountryData, game_data: GameData) -> ModifierResult:
     """Compute trade efficiency modifier (includes dip tech base)."""
-    tech_idx = min(max(country.dip_tech, 0), len(_DIP_TECH_TRADE_EFF) - 1)
-    tech_bonus = _DIP_TECH_TRADE_EFF[tech_idx]
+    if game_data and game_data.tech_cumulative_modifiers.get("dip"):
+        tech_bonus = game_data.get_tech_base("dip", country.dip_tech, "trade_efficiency", default=0.0)
+    else:
+        tech_idx = min(max(country.dip_tech, 0), len(_DIP_TECH_TRADE_EFF) - 1)
+        tech_bonus = _DIP_TECH_TRADE_EFF[tech_idx]
 
     mod_bonus = country.get_modifier("trade_efficiency")
     bd = [(f"dip_tech_{country.dip_tech}", tech_bonus)] + [
@@ -90,8 +97,11 @@ def calc_trade_efficiency(country: CountryData, game_data: GameData) -> Modifier
 
 def calc_production_efficiency(country: CountryData, game_data: GameData) -> ModifierResult:
     """Compute production efficiency (includes adm tech base)."""
-    tech_idx = min(max(country.adm_tech, 0), len(_ADM_TECH_PROD_EFF) - 1)
-    tech_bonus = _ADM_TECH_PROD_EFF[tech_idx]
+    if game_data and game_data.tech_cumulative_modifiers.get("adm"):
+        tech_bonus = game_data.get_tech_base("adm", country.adm_tech, "production_efficiency", default=0.0)
+    else:
+        tech_idx = min(max(country.adm_tech, 0), len(_ADM_TECH_PROD_EFF) - 1)
+        tech_bonus = _ADM_TECH_PROD_EFF[tech_idx]
 
     mod_bonus = country.get_modifier("production_efficiency")
     bd = [(f"adm_tech_{country.adm_tech}", tech_bonus)] + [

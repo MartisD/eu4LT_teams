@@ -96,10 +96,12 @@ class GameData:
     government_rank_modifiers: dict[int, dict[str, float]] = field(default_factory=dict)
     # ruler_personality_name → {modifier_key: value}
     ruler_personalities: dict[str, dict[str, float]] = field(default_factory=dict)
-    # set of coastal province IDs computed from map BMP and definitions
-    coastal_provinces: set[int] = field(default_factory=set)
     # tech_type ('adm'/'dip'/'mil') → list of year per tech level (index 0 = tech 1)
     tech_years: dict[str, list[int]] = field(default_factory=dict)
+    # tech_type ('adm'/'dip'/'mil') → list of dict[modifier_key, value] per tech level
+    technologies: dict[str, list[dict[str, float]]] = field(default_factory=dict)
+    # tech_type ('adm'/'dip'/'mil') → list of cumulative dict[modifier_key, value] up to tech level
+    tech_cumulative_modifiers: dict[str, list[dict[str, float]]] = field(default_factory=dict)
     # naval_doctrine_name → {modifier_key: value}
     naval_doctrines: dict[str, dict[str, float]] = field(default_factory=dict)
     # crownland bonus tiers from common/estate_crown_land/*.txt
@@ -111,6 +113,19 @@ class GameData:
     def get_modifier_effects(self, modifier_name: str) -> dict[str, float]:
         """Look up the effects of a named modifier (from events/missions)."""
         return self.event_modifiers.get(modifier_name, {})
+
+    def get_tech_modifiers(self, tech_type: str, level: int) -> dict[str, float]:
+        """Return cumulative base technology modifiers up to tech level (e.g. mil tech 15)."""
+        cum_list = self.tech_cumulative_modifiers.get(tech_type, [])
+        if not cum_list:
+            return {}
+        lvl = max(0, min(level, len(cum_list) - 1))
+        return cum_list[lvl]
+
+    def get_tech_base(self, tech_type: str, level: int, modifier_key: str, default: float = 0.0) -> float:
+        """Get the cumulative value of a specific technology modifier up to `level`."""
+        mods = self.get_tech_modifiers(tech_type, level)
+        return mods.get(modifier_key, default)
 
     def compute_idea_modifiers(
         self, group_name: str, completed_levels: int
@@ -670,21 +685,64 @@ def load_game_data(base_path: str, mod_paths: list[str] | None = None) -> GameDa
 
     _load_coastal_provinces(base_path, mod_paths, data)
 
-    # Load technology years (mod overrides vanilla if present, so prefer last matching path)
+    # Load technologies (mod overrides vanilla if present, so prefer mod path first)
     for tech_type in ('adm', 'dip', 'mil'):
         loaded = False
-        for root_path in reversed(expanded_paths):  # mod last = highest priority
+        for root_path in reversed(expanded_paths):  # mod last in expanded_paths = highest priority
             tech_path = os.path.join(root_path, "common", "technologies", f"{tech_type}.txt")
             if os.path.isfile(tech_path):
-                _load_tech_years_file(tech_path, tech_type, data)
+                _load_technologies_file(tech_path, tech_type, data)
                 loaded = True
                 break
         if not loaded:
-            # fallback: vanilla
             tech_path = os.path.join(base_path, "common", "technologies", f"{tech_type}.txt")
-            _load_tech_years_file(tech_path, tech_type, data)
+            if os.path.isfile(tech_path):
+                _load_technologies_file(tech_path, tech_type, data)
 
     return data
+
+
+def _load_technologies_file(path: str, tech_type: str, data: GameData) -> None:
+    """
+    Parse a technology file (adm.txt, dip.txt, mil.txt) and store both individual
+    level modifiers and cumulative modifiers up to that level.
+    """
+    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+        root = parse(f.read())
+
+    tech_levels: list[dict[str, float]] = []
+    years: list[int] = []
+
+    for k, v in root._data.items():
+        if k == "technology":
+            v_list = v if isinstance(v, list) else [v]
+            for tnode in v_list:
+                if isinstance(tnode, ClausewitzNode):
+                    mods: dict[str, float] = {}
+                    y = tnode.get_int("year")
+                    if y:
+                        years.append(y)
+                    for mk, mv in tnode.items():
+                        if isinstance(mv, str):
+                            try:
+                                mods[mk] = float(mv)
+                            except ValueError:
+                                pass
+                    tech_levels.append(mods)
+
+    if tech_levels:
+        data.technologies[tech_type] = tech_levels
+        # Compute cumulative modifiers per level
+        cum_list: list[dict[str, float]] = []
+        running: dict[str, float] = {}
+        for level_mods in tech_levels:
+            for mk, mv in level_mods.items():
+                running[mk] = running.get(mk, 0.0) + mv
+            cum_list.append(dict(running))
+        data.tech_cumulative_modifiers[tech_type] = cum_list
+
+    if years:
+        data.tech_years[tech_type] = years
 
 
 def _load_coastal_provinces(base_path: str, mod_paths: list[str] | None, data: GameData) -> None:

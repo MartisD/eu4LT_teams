@@ -22,14 +22,28 @@ TEAM_2_TAGS = {"MLC", "RUS", "BAH", "QNG"}
 # Palette for tournament player nations and their subjects
 COUNTRY_COLORS: dict[str, tuple[int, int, int]] = {
     "SPA": (234, 179, 8),     # Spain Gold (#eab308)
+    "CAS": (234, 179, 8),
+    "ARA": (217, 119, 6),
     "FRA": (37, 99, 235),     # France Royal Blue (#2563eb)
+    "BUR": (159, 18, 57),     # Burgundy Crimson Wine (#9f1239)
     "HAB": (252, 252, 254),   # Austria Imperial White (#fcfcfe)
     "MUG": (16, 185, 129),    # Mughals Emerald Green (#10b981)
+    "TIM": (16, 185, 129),
+    "QOM": (16, 185, 129),
     "MLC": (162, 28, 175),    # Malacca Purple (#a21caf)
+    "MAY": (162, 28, 175),
     "RUS": (180, 50, 95),     # Russia Plum / Berry Wine (#b4325f)
+    "NOV": (180, 50, 95),
+    "MOS": (180, 50, 95),
     "BAH": (14, 165, 233),    # Bahmanis Sky Cyan (#0ea5e9)
+    "SKE": (14, 165, 233),    # Sikh Empire Sky Cyan (#0ea5e9)
+    "DEC": (14, 165, 233),
+    "HND": (14, 165, 233),
+    "PUN": (14, 165, 233),
+    "BHA": (14, 165, 233),
     "QNG": (245, 158, 11),    # Qing Amber Gold (#f59e0b)
-    "BUR": (159, 18, 57),     # Burgundy Crimson Wine (#9f1239)
+    "MCH": (245, 158, 11),
+    "MHX": (245, 158, 11),
     "C00": (217, 119, 6),     # Colonial Nations / Subjects
     "C01": (217, 119, 6),
     "C02": (217, 119, 6),
@@ -168,6 +182,8 @@ def generate_interactive_map_data(
     tag_to_player: dict[str, str],
     wasteland_provinces: set[int] | None = None,
     subject_to_overlord: dict[str, str] | None = None,
+    team1_tags: set[str] | None = None,
+    team2_tags: set[str] | None = None,
     output_dir: str | None = None,
 ) -> dict[str, Any]:
     """
@@ -177,6 +193,10 @@ def generate_interactive_map_data(
         wasteland_provinces = set()
     if subject_to_overlord is None:
         subject_to_overlord = {}
+    if team1_tags is None:
+        team1_tags = TEAM_1_TAGS
+    if team2_tags is None:
+        team2_tags = TEAM_2_TAGS
 
     rgb_to_pid: dict[tuple[int, int, int], int] = {}
     max_pid = 1
@@ -346,9 +366,9 @@ def generate_interactive_map_data(
             c_pol = get_country_color(owner)
 
             # 3. Teams
-            if owner in TEAM_1_TAGS or team == "TEAM_1":
+            if owner in team1_tags or team == "TEAM_1":
                 c_teams = TEAM_1_COLOR
-            elif owner in TEAM_2_TAGS or team == "TEAM_2":
+            elif owner in team2_tags or team == "TEAM_2":
                 c_teams = TEAM_2_COLOR
             else:
                 c_teams = UNCOLONIZED_COLOR

@@ -69,6 +69,9 @@ TEAM_1_ROLES = {
     "FRA": "QUANTITY",
     "BUR": "QUANTITY",
     "HAB": "QUALITY",
+    "AUS": "QUALITY",
+    "GER": "QUALITY",
+    "HRE": "QUALITY",
     "MUG": "BLOB",
     "TIM": "BLOB",
     "QOM": "BLOB",
@@ -77,15 +80,22 @@ TEAM_1_ROLES = {
 TEAM_2_ROLES = {
     "MLC": "NAVAL",
     "MAY": "NAVAL",
+    "MSA": "NAVAL",
     "RUS": "QUANTITY",
     "NOV": "QUANTITY",
     "MOS": "QUANTITY",
+    "RUT": "QUANTITY",
     "BAH": "QUALITY",
     "DEC": "QUALITY",
     "HND": "QUALITY",
+    "SKE": "QUALITY",
+    "PUN": "QUALITY",
+    "BHA": "QUALITY",
     "QNG": "BLOB",
     "MCH": "BLOB",
     "MHX": "BLOB",
+    "YUA": "BLOB",
+    "MGE": "BLOB",
 }
 
 TAG_TO_TEAM_ROLE = {}
@@ -453,14 +463,26 @@ def _compute_matchups(country_map: dict[str, dict]) -> tuple[dict, dict, list[di
     Returns (team1_summary, team2_summary, matchups_list).
     """
     roles = ["NAVAL", "QUANTITY", "QUALITY", "BLOB"]
-    role_to_t1 = {"NAVAL": "SPA", "QUANTITY": "FRA", "QUALITY": "HAB", "BLOB": "MUG"}
-    role_to_t2 = {"NAVAL": "MLC", "QUANTITY": "RUS", "QUALITY": "BAH", "BLOB": "QNG"}
 
-    def _get_country(target_tag: str) -> dict | None:
-        if target_tag in country_map:
-            return country_map[target_tag]
+    def _find_country(team_name: str, target_role: str) -> dict | None:
         for c in country_map.values():
-            if target_tag in c.get("tag_history", []):
+            if c.get("team") == team_name and c.get("role") == target_role:
+                return c
+        # Fallback to tag history matching if team or role was unassigned
+        role_base_tags = {
+            (TEAM_1_NAME, "NAVAL"): {"SPA", "CAS", "ARA"},
+            (TEAM_1_NAME, "QUANTITY"): {"FRA", "BUR"},
+            (TEAM_1_NAME, "QUALITY"): {"HAB", "AUS", "GER", "HRE"},
+            (TEAM_1_NAME, "BLOB"): {"MUG", "TIM", "QOM"},
+            (TEAM_2_NAME, "NAVAL"): {"MLC", "MAY", "MSA"},
+            (TEAM_2_NAME, "QUANTITY"): {"RUS", "NOV", "MOS", "RUT"},
+            (TEAM_2_NAME, "QUALITY"): {"BAH", "DEC", "HND", "SKE", "PUN", "BHA"},
+            (TEAM_2_NAME, "BLOB"): {"QNG", "MCH", "MHX", "YUA", "MGE"},
+        }
+        cand_tags = role_base_tags.get((team_name, target_role), set())
+        for c in country_map.values():
+            c_tags = set(c.get("tag_history", [])) | {c.get("tag", "")}
+            if c_tags & cand_tags:
                 return c
         return None
 
@@ -469,10 +491,8 @@ def _compute_matchups(country_map: dict[str, dict]) -> tuple[dict, dict, list[di
     matchups = []
 
     for role in roles:
-        t1_tag = role_to_t1[role]
-        t2_tag = role_to_t2[role]
-        c1 = _get_country(t1_tag)
-        c2 = _get_country(t2_tag)
+        c1 = _find_country(TEAM_1_NAME, role)
+        c2 = _find_country(TEAM_2_NAME, role)
 
         role_t1_score = 0
         role_t2_score = 0
@@ -560,8 +580,8 @@ def _compute_matchups(country_map: dict[str, dict]) -> tuple[dict, dict, list[di
     for c in country_map.values():
         c.setdefault("score", 0)
 
-    t1_countries = [_get_country(tag) for tag in ["SPA", "FRA", "HAB", "MUG"]]
-    t2_countries = [_get_country(tag) for tag in ["MLC", "RUS", "BAH", "QNG"]]
+    t1_countries = [_find_country(TEAM_1_NAME, r) for r in roles]
+    t2_countries = [_find_country(TEAM_2_NAME, r) for r in roles]
 
     team1_summary = {
         "name": TEAM_1_NAME,
@@ -586,8 +606,13 @@ def main() -> None:
         return
 
     save_path = sys.argv[1]
-    eu4_dir   = sys.argv[2] if len(sys.argv) > 2 else None
-    mod_dir   = sys.argv[3] if len(sys.argv) > 3 else None
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    workspace_root = os.path.dirname(script_dir)
+    default_eu4_dir = os.path.join(workspace_root, "eu4_data")
+    default_mod_dir = os.path.join(default_eu4_dir, "mod")
+
+    eu4_dir   = sys.argv[2] if len(sys.argv) > 2 else (default_eu4_dir if os.path.isdir(default_eu4_dir) else None)
+    mod_dir   = sys.argv[3] if len(sys.argv) > 3 else (default_mod_dir if os.path.isdir(default_mod_dir) else None)
 
     game_data: GameData | None = None
     if eu4_dir:
@@ -610,15 +635,22 @@ def main() -> None:
             f"{len(game_data.advisor_modifiers)} advisor types, "
             f"{len(game_data.great_projects)} monuments, "
             f"{len(game_data.colonial_region_provinces)} colonial regions, "
-            f"{len(game_data.coastal_provinces)} coastal provinces loaded"
+            f"{len(game_data.coastal_provinces)} coastal provinces, "
+            f"{len(game_data.technologies.get('mil', []))} mil techs loaded"
         )
 
     print("Parsing save file...")
     players_countries, countries, most_dev, extra = load_save_full(save_path, game_data=game_data)
     print(f"  {len(players_countries)} players, {len(countries)} countries extracted")
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    eu4_data_path = os.path.join(os.path.dirname(script_dir), "eu4_data")
+    # Dynamically register newly formed tags in TAG_TO_TEAM_ROLE based on formation lineage
+    for cd in countries:
+        for prev_t in getattr(cd, "tag_history", []):
+            if prev_t in TAG_TO_TEAM_ROLE and cd.tag not in TAG_TO_TEAM_ROLE:
+                TAG_TO_TEAM_ROLE[cd.tag] = TAG_TO_TEAM_ROLE[prev_t]
+                break
+
+    eu4_data_path = os.path.join(workspace_root, "eu4_data")
     enrich_with_historical_ideas(countries, eu4_data_path)
 
     if game_data:
@@ -704,6 +736,18 @@ def main() -> None:
         return (t_order, r_order, c["tag"])
 
     sorted_countries = sorted(processed_countries, key=_country_sort_key)
+
+    team1_tags = {c["tag"] for c in sorted_countries if c["team"] == TEAM_1_NAME}
+    for c in sorted_countries:
+        if c["team"] == TEAM_1_NAME:
+            team1_tags.update(c.get("tag_history", []))
+
+    team2_tags = {c["tag"] for c in sorted_countries if c["team"] == TEAM_2_NAME}
+    for c in sorted_countries:
+        if c["team"] == TEAM_2_NAME:
+            team2_tags.update(c.get("tag_history", []))
+
+    player_tags = [c["tag"] for c in sorted_countries]
 
     # Generate interactive map data if map assets exist
     map_data: dict[str, Any] | None = None
@@ -798,6 +842,8 @@ def main() -> None:
                 tag_to_player=tag_to_player,
                 wasteland_provinces=wasteland_provinces,
                 subject_to_overlord=subject_to_overlord,
+                team1_tags=team1_tags,
+                team2_tags=team2_tags,
                 output_dir=output_dir,
             )
             if map_data:
@@ -841,6 +887,9 @@ def main() -> None:
         most_dev_province=most_dev,
         game_data_loaded=game_data is not None,
         map_data=map_data,
+        team1_tags=list(team1_tags),
+        team2_tags=list(team2_tags),
+        player_tags=player_tags,
         wars=extra.get("wars", []),
         battles=extra.get("battles", []),
     )

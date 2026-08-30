@@ -2588,23 +2588,17 @@
                 if (!legend) return;
                 if (activeMode === 'players' || activeMode === 'political') {
                     legend.innerHTML = `
-                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#eab308"></div> SPA</div>
-                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#2563eb"></div> FRA</div>
-                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#fcfcfe"></div> HAB</div>
-                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#10b981"></div> MUG</div>
-                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#a21caf"></div> MLC</div>
-                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#b4325f"></div> RUS</div>
-                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#0ea5e9"></div> BAH</div>
-                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#f59e0b"></div> QNG</div>
-                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#9f1239"></div> BUR</div>
+                        {% for c in countries %}
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:{{ '#2563eb' if c.team == team1.name else '#ef4444' if c.team == team2.name else '#a855f7' }}"></div> {{ c.tag }}{% if c.player and c.player != 'Unknown' %} ({{ c.player }}){% endif %}</div>
+                        {% endfor %}
                         ${activeMode === 'players' ? '<div class="map-legend-item"><div class="map-legend-swatch" style="background:#cbd5e1; border:1px dashed #94a3b8"></div> Player Subjects (Lighter Tint)</div>' : ''}
                         ${activeMode === 'players' ? '<div class="map-legend-item"><div class="map-legend-swatch" style="background:#2a3444"></div> Neutral / Non-Player</div>' : ''}
                         <div class="map-legend-item"><div class="map-legend-swatch" style="background:#4b5563"></div> Wastelands</div>
                     `;
                 } else if (activeMode === 'teams') {
                     legend.innerHTML = `
-                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#2563eb"></div> Team 1 (SPA, FRA, HAB, MUG, BUR)</div>
-                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#ef4444"></div> Team 2 (MLC, RUS, BAH, QNG)</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#2563eb"></div> {{ team1.name }} ({{ team1_tags|join(', ') if team1_tags else 'Team 1' }})</div>
+                        <div class="map-legend-item"><div class="map-legend-swatch" style="background:#ef4444"></div> {{ team2.name }} ({{ team2_tags|join(', ') if team2_tags else 'Team 2' }})</div>
                         <div class="map-legend-item"><div class="map-legend-swatch" style="background:#2a3444"></div> Unaligned / Neutral</div>
                         <div class="map-legend-item"><div class="map-legend-swatch" style="background:#4b5563"></div> Wastelands</div>
                     `;
@@ -2691,7 +2685,8 @@
                 }
 
                 const ownerDisp = prov.owner ? `${prov.owner} ${prov.player ? '(' + prov.player + ')' : ''}` : 'Uncolonized / Neutral';
-                const clickPrompt = prov.owner && ['SPA','FRA','HAB','MUG','BUR','MLC','RUS','BAH','QNG'].includes(prov.owner) 
+                const playerTagsList = {{ (player_tags or ['SPA','FRA','HAB','MUG','BUR','MLC','RUS','BAH','SKE','QNG']) | tojson }};
+                const clickPrompt = prov.owner && playerTagsList.includes(prov.owner) 
                     ? `<div style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1); color:#60a5fa; font-weight:700; font-size:11px;">🔍 Click / Tap to view ${prov.owner} slide-out stats</div>` 
                     : '';
 
@@ -2739,6 +2734,7 @@
             let dragDist = 0;
             let startX = 0;
             let startY = 0;
+            const playerTagsList = {{ (player_tags or ['SPA','FRA','HAB','MUG','BUR','MLC','RUS','BAH','SKE','QNG']) | tojson }};
 
             wrapper.addEventListener('mousedown', e => {
                 if (e.target.closest('.map-controls') || e.target.closest('.map-legend')) return;
@@ -2894,7 +2890,7 @@
                         if (pid > 0) {
                             showProvinceTooltip(pid, touchStartX, touchStartY);
                             const prov = provData[pid];
-                            if (prov && !prov.waste && prov.owner && ['SPA','FRA','HAB','MUG','BUR','MLC','RUS','BAH','QNG'].includes(prov.owner)) {
+                            if (prov && !prov.waste && prov.owner && playerTagsList.includes(prov.owner)) {
                                 openCountryDrawer(prov.owner);
                             }
                         } else if (tooltip) {
@@ -2983,10 +2979,9 @@
                 <div class="team-score-badge">{{ team1.score }}<span class="team-score-unit">PTS</span></div>
             </div>
             <div class="team-roster">
-                <div class="roster-pill"><span class="roster-role">Naval</span><span class="roster-tag">SPA</span></div>
-                <div class="roster-pill"><span class="roster-role">Quantity</span><span class="roster-tag">FRA</span></div>
-                <div class="roster-pill"><span class="roster-role">Quality</span><span class="roster-tag">HAB</span></div>
-                <div class="roster-pill"><span class="roster-role">Blob</span><span class="roster-tag">MUG</span></div>
+                {% for c in team1.countries %}
+                <div class="roster-pill"><span class="roster-role">{{ c.role | capitalize }}</span><span class="roster-tag">{{ c.tag }}</span></div>
+                {% endfor %}
             </div>
         </div>
 
@@ -2998,10 +2993,9 @@
                 <div class="team-score-badge">{{ team2.score }}<span class="team-score-unit">PTS</span></div>
             </div>
             <div class="team-roster">
-                <div class="roster-pill"><span class="roster-role">Naval</span><span class="roster-tag">MLC</span></div>
-                <div class="roster-pill"><span class="roster-role">Quantity</span><span class="roster-tag">RUS</span></div>
-                <div class="roster-pill"><span class="roster-role">Quality</span><span class="roster-tag">BAH</span></div>
-                <div class="roster-pill"><span class="roster-role">Blob</span><span class="roster-tag">QNG</span></div>
+                {% for c in team2.countries %}
+                <div class="roster-pill"><span class="roster-role">{{ c.role | capitalize }}</span><span class="roster-tag">{{ c.tag }}</span></div>
+                {% endfor %}
             </div>
         </div>
     </div>
@@ -3269,7 +3263,7 @@
                                 <td>
                                     <div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center;">
                                         {% for a in w.attackers %}
-                                        <span class="country-tag-badge {{ 'team2' if a.tag in ('BAH','RUS','MLC','QNG') else '' }}" style="font-size:10px; padding:2px 5px; {{ 'border-width:2px; font-weight:800;' if a.is_leader else '' }}" data-tooltip="{{ a.name }}{% if a.player %} ({{ a.player }}){% endif %}{% if a.is_leader %} [War Leader]{% endif %}">
+                                        <span class="country-tag-badge {{ 'team2' if a.tag in (team2_tags or ('BAH','SKE','RUS','MLC','QNG')) else '' }}" style="font-size:10px; padding:2px 5px; {{ 'border-width:2px; font-weight:800;' if a.is_leader else '' }}" data-tooltip="{{ a.name }}{% if a.player %} ({{ a.player }}){% endif %}{% if a.is_leader %} [War Leader]{% endif %}">
                                             {{ a.tag }}{% if a.player %}<span style="opacity:0.85; font-size:9.5px;"> ({{ a.player }})</span>{% endif %}
                                         </span>
                                         {% endfor %}
@@ -3278,7 +3272,7 @@
                                 <td>
                                     <div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center;">
                                         {% for d in w.defenders %}
-                                        <span class="country-tag-badge {{ 'team2' if d.tag in ('BAH','RUS','MLC','QNG') else '' }}" style="font-size:10px; padding:2px 5px; {{ 'border-width:2px; font-weight:800;' if d.is_leader else '' }}" data-tooltip="{{ d.name }}{% if d.player %} ({{ d.player }}){% endif %}{% if d.is_leader %} [War Leader]{% endif %}">
+                                        <span class="country-tag-badge {{ 'team2' if d.tag in (team2_tags or ('BAH','SKE','RUS','MLC','QNG')) else '' }}" style="font-size:10px; padding:2px 5px; {{ 'border-width:2px; font-weight:800;' if d.is_leader else '' }}" data-tooltip="{{ d.name }}{% if d.player %} ({{ d.player }}){% endif %}{% if d.is_leader %} [War Leader]{% endif %}">
                                             {{ d.tag }}{% if d.player %}<span style="opacity:0.85; font-size:9.5px;"> ({{ d.player }})</span>{% endif %}
                                         </span>
                                         {% endfor %}
@@ -3360,7 +3354,7 @@
                                 <td>
                                     <div style="display:flex; flex-direction:column; gap:3px;">
                                         <div style="display:flex; align-items:center; gap:4px;">
-                                            <span class="country-tag-badge {{ 'team2' if b.attacker_tag in ('BAH','RUS','MLC','QNG') else '' }}" style="font-size:10px; padding:2px 5px; border-width:2px; font-weight:800;" data-tooltip="Primary Combatant: {{ b.attacker_name }}{% if b.attacker_player %} ({{ b.attacker_player }}){% endif %}">
+                                            <span class="country-tag-badge {{ 'team2' if b.attacker_tag in (team2_tags or ('BAH','SKE','RUS','MLC','QNG')) else '' }}" style="font-size:10px; padding:2px 5px; border-width:2px; font-weight:800;" data-tooltip="Primary Combatant: {{ b.attacker_name }}{% if b.attacker_player %} ({{ b.attacker_player }}){% endif %}">
                                                 {{ b.attacker_tag }}{% if b.attacker_player %}<span style="opacity:0.85; font-size:9.5px;"> ({{ b.attacker_player }})</span>{% endif %}
                                             </span>
                                         </div>
@@ -3371,7 +3365,7 @@
                                         <div style="display:flex; flex-wrap:wrap; gap:3px; align-items:center; margin-top:2px;">
                                             <span style="font-size:9.5px; color:var(--text-dim);">Allies:</span>
                                             {% for a in b.war_attackers %}{% if a.tag != b.attacker_tag %}
-                                            <span class="country-tag-badge {{ 'team2' if a.tag in ('BAH','RUS','MLC','QNG') else '' }}" style="font-size:9px; padding:1px 4px;" data-tooltip="Allied Participant: {{ a.name }}{% if a.player %} ({{ a.player }}){% endif %}">
+                                            <span class="country-tag-badge {{ 'team2' if a.tag in (team2_tags or ('BAH','SKE','RUS','MLC','QNG')) else '' }}" style="font-size:9px; padding:1px 4px;" data-tooltip="Allied Participant: {{ a.name }}{% if a.player %} ({{ a.player }}){% endif %}">
                                                 {{ a.tag }}
                                             </span>
                                             {% endif %}{% endfor %}
@@ -3392,7 +3386,7 @@
                                 <td>
                                     <div style="display:flex; flex-direction:column; gap:3px;">
                                         <div style="display:flex; align-items:center; gap:4px;">
-                                            <span class="country-tag-badge {{ 'team2' if b.defender_tag in ('BAH','RUS','MLC','QNG') else '' }}" style="font-size:10px; padding:2px 5px; border-width:2px; font-weight:800;" data-tooltip="Primary Combatant: {{ b.defender_name }}{% if b.defender_player %} ({{ b.defender_player }}){% endif %}">
+                                            <span class="country-tag-badge {{ 'team2' if b.defender_tag in (team2_tags or ('BAH','SKE','RUS','MLC','QNG')) else '' }}" style="font-size:10px; padding:2px 5px; border-width:2px; font-weight:800;" data-tooltip="Primary Combatant: {{ b.defender_name }}{% if b.defender_player %} ({{ b.defender_player }}){% endif %}">
                                                 {{ b.defender_tag }}{% if b.defender_player %}<span style="opacity:0.85; font-size:9.5px;"> ({{ b.defender_player }})</span>{% endif %}
                                             </span>
                                         </div>
@@ -3403,7 +3397,7 @@
                                         <div style="display:flex; flex-wrap:wrap; gap:3px; align-items:center; margin-top:2px;">
                                             <span style="font-size:9.5px; color:var(--text-dim);">Allies:</span>
                                             {% for d in b.war_defenders %}{% if d.tag != b.defender_tag %}
-                                            <span class="country-tag-badge {{ 'team2' if d.tag in ('BAH','RUS','MLC','QNG') else '' }}" style="font-size:9px; padding:1px 4px;" data-tooltip="Allied Participant: {{ d.name }}{% if d.player %} ({{ d.player }}){% endif %}">
+                                            <span class="country-tag-badge {{ 'team2' if d.tag in (team2_tags or ('BAH','SKE','RUS','MLC','QNG')) else '' }}" style="font-size:9px; padding:1px 4px;" data-tooltip="Allied Participant: {{ d.name }}{% if d.player %} ({{ d.player }}){% endif %}">
                                                 {{ d.tag }}
                                             </span>
                                             {% endif %}{% endfor %}

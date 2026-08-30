@@ -9,28 +9,28 @@ from eu4.save_reader import CountryData
 from eu4.game_data import GameData
 
 
-def _base_morale(mil_tech: int) -> float:
-    """Base land morale per military tech level (from common/technologies/mil.txt)."""
+def _fallback_base_morale(mil_tech: int) -> float:
+    """Fallback base land morale per military tech level if game_data is not available."""
     tech_morale = {
-        1: 2.0, 2: 2.0, 3: 2.0, 4: 2.5, 5: 3.0, 6: 3.0, 7: 3.0, 8: 3.0,
-        9: 3.0, 10: 3.0, 11: 3.0, 12: 3.0, 13: 3.0, 14: 3.0, 15: 3.0,
+        1: 2.0, 2: 2.0, 3: 2.5, 4: 3.0, 5: 3.0, 6: 3.0, 7: 3.0, 8: 3.0,
+        9: 3.0, 10: 3.0, 11: 3.0, 12: 3.0, 13: 3.0, 14: 3.0, 15: 4.0,
         16: 4.0, 17: 4.0, 18: 4.0, 19: 4.0, 20: 4.0, 21: 4.0, 22: 4.0,
-        23: 4.0, 24: 4.0, 25: 4.0, 26: 4.0, 27: 5.0, 28: 5.0, 29: 5.0,
-        30: 5.0, 31: 6.0, 32: 6.0, 33: 6.0
+        23: 4.0, 24: 4.0, 25: 4.0, 26: 5.0, 27: 5.0, 28: 5.0, 29: 5.0,
+        30: 6.0, 31: 6.0, 32: 6.0, 33: 6.0
     }
-    return tech_morale.get(mil_tech, 3.0 if mil_tech < 16 else (4.0 if mil_tech < 27 else 5.0))
+    return tech_morale.get(mil_tech, 3.0 if mil_tech < 15 else (4.0 if mil_tech < 26 else 5.0))
 
 
-def _base_naval_morale(dip_tech: int) -> float:
-    """Base naval morale per diplomatic tech level (from common/technologies/dip.txt)."""
+def _fallback_base_naval_morale(dip_tech: int) -> float:
+    """Fallback base naval morale per diplomatic tech level if game_data is not available."""
     tech_naval = {
-        1: 2.0, 2: 2.0, 3: 2.0, 4: 2.1, 5: 2.1, 6: 2.1, 7: 2.1, 8: 2.4,
+        1: 2.0, 2: 2.0, 3: 2.1, 4: 2.1, 5: 2.1, 6: 2.1, 7: 2.1, 8: 2.4,
         9: 2.6, 10: 2.6, 11: 2.6, 12: 2.6, 13: 3.0, 14: 3.0, 15: 3.0,
         16: 3.0, 17: 3.0, 18: 3.0, 19: 3.5, 20: 3.5, 21: 3.5, 22: 3.5,
         23: 4.0, 24: 4.0, 25: 4.0, 26: 4.5, 27: 4.5, 28: 5.0, 29: 5.0,
         30: 5.5, 31: 5.5, 32: 6.0, 33: 6.0
     }
-    return tech_naval.get(dip_tech, 2.0 if dip_tech < 4 else (2.6 if dip_tech < 13 else 3.0))
+    return tech_naval.get(dip_tech, 2.0 if dip_tech < 3 else (2.6 if dip_tech < 13 else 3.0))
 
 
 def calc_discipline(country: CountryData, game_data: GameData) -> ModifierResult:
@@ -43,10 +43,14 @@ def calc_discipline(country: CountryData, game_data: GameData) -> ModifierResult
 
 def calc_morale_armies(country: CountryData, game_data: GameData) -> ModifierResult:
     """Compute total land morale (absolute value e.g. 5.20)."""
-    base = _base_morale(country.mil_tech)
+    if game_data and game_data.tech_cumulative_modifiers.get("mil"):
+        base = game_data.get_tech_base("mil", country.mil_tech, "land_morale", default=3.0)
+    else:
+        base = _fallback_base_morale(country.mil_tech)
+
     pct_mods = country.get_modifier("morale_armies", "land_morale")
 
-    bd: list[tuple[str, float]] = [("base_mil_tech", base)]
+    bd: list[tuple[str, float]] = [(f"base_mil_tech_{country.mil_tech}", base)]
     for e in country.get_breakdown("morale_armies", "land_morale"):
         bd.append((e["source"], e["value"]))
 
@@ -56,10 +60,14 @@ def calc_morale_armies(country: CountryData, game_data: GameData) -> ModifierRes
 
 def calc_naval_morale(country: CountryData, game_data: GameData) -> ModifierResult:
     """Compute total naval morale."""
-    base = _base_naval_morale(country.dip_tech)
+    if game_data and game_data.tech_cumulative_modifiers.get("dip"):
+        base = game_data.get_tech_base("dip", country.dip_tech, "naval_morale", default=3.0)
+    else:
+        base = _fallback_base_naval_morale(country.dip_tech)
+
     pct_mods = country.get_modifier("naval_morale")
 
-    bd: list[tuple[str, float]] = [("base_dip_tech", base)]
+    bd: list[tuple[str, float]] = [(f"base_dip_tech_{country.dip_tech}", base)]
     for e in country.get_breakdown("naval_morale"):
         bd.append((e["source"], e["value"]))
 

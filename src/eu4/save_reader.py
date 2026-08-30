@@ -608,19 +608,44 @@ def _extract_subjects(
     return colonial, personal_union, colonial_tags
 
 
+# ── tournament participating tags ─────────────────────────────────────────────
+
+BASE_TOURNAMENT_TAGS: set[str] = {
+    # Team 1
+    "SPA", "CAS", "ARA",
+    "FRA", "BUR",
+    "HAB", "AUS", "GER", "HRE",
+    "MUG", "TIM", "QOM",
+    # Team 2
+    "MLC", "MAY", "MSA",
+    "RUS", "NOV", "MOS", "RUT",
+    "BAH", "DEC", "HND", "SKE", "PUN", "BHA",
+    "QNG", "MCH", "MHX", "YUA", "MGE",
+}
+
+
 # ── players / country iteration ───────────────────────────────────────────────
+
+
+def _extract_players_countries_raw(root: ClausewitzNode) -> list[tuple[str, str]]:
+    """Returns list of raw (player_name, country_tag) pairs from players_countries node."""
+    pc_node = root.get_node("players_countries")
+    if not pc_node:
+        return []
+    items = pc_node.array
+    result: list[tuple[str, str]] = []
+    for i in range(0, len(items) - 1, 2):
+        player = str(items[i])
+        tag = str(items[i + 1])
+        result.append((player, tag))
+    return result
 
 
 def _extract_players_countries(root: ClausewitzNode) -> dict[str, str]:
     """Returns {player_name: country_tag}."""
-    pc_node = root.get_node("players_countries")
-    if not pc_node:
-        return {}
-    items = pc_node.array
+    raw = _extract_players_countries_raw(root)
     result: dict[str, str] = {}
-    for i in range(0, len(items) - 1, 2):
-        player = str(items[i])
-        tag = str(items[i + 1])
+    for player, tag in raw:
         result[player] = tag
     return result
 
@@ -657,14 +682,24 @@ def _extract_tag_history(country_node: ClausewitzNode, current_tag: str) -> list
     hist = country_node.get_node("history")
     if not hist:
         return tags
-    for k, v in hist.items():
-        if k == "changed_tag_from" and isinstance(v, str):
-            if v not in tags:
-                tags.append(v)
-        elif isinstance(v, ClausewitzNode):
-            prev = v.get_str("changed_tag_from")
-            if prev and prev not in tags:
-                tags.append(prev)
+
+    def scan_node(node: Any) -> None:
+        if not hasattr(node, "_data"):
+            return
+        for k, v_list in node._data.items():
+            if not isinstance(v_list, list):
+                v_list = [v_list]
+            for v in v_list:
+                if k == "changed_tag_from" and isinstance(v, str):
+                    if v not in tags:
+                        tags.append(v)
+                elif hasattr(v, "_data"):
+                    for ctf in v.get_list("changed_tag_from"):
+                        if isinstance(ctf, str) and ctf not in tags:
+                            tags.append(ctf)
+                    scan_node(v)
+
+    scan_node(hist)
     return tags
 
 
@@ -1269,8 +1304,72 @@ def load_save_full(
 
     root = parse(gamestate_text)
 
+    raw_players_list = _extract_players_countries_raw(root)
     players_countries = _extract_players_countries(root)
-    tag_to_player = {tag: player for player, tag in players_countries.items()}
+
+    countries_node = root.get_node("countries")
+
+    # 1. Identify all living countries and their tag formation lineage
+    living_countries: dict[str, list[str]] = {}
+    if countries_node:
+        for tag, cnode in countries_node.items():
+            if isinstance(cnode, ClausewitzNode) and len(tag) == 3:
+                if cnode.get_float("raw_development") > 0.0:
+                    living_countries[tag] = _extract_tag_history(cnode, tag)
+
+    # 2. Determine which living countries are human / tournament participating countries
+    active_player_tags: set[str] = set()
+    tag_to_player: dict[str, str] = {}
+    used_players: set[str] = set()
+
+    for cur_tag, th in living_countries.items():
+        cnode = countries_node.get_node(cur_tag) if countries_node else None
+        is_human = (
+            (cnode and cnode.get_str("human") == "yes")
+            or any(t in BASE_TOURNAMENT_TAGS for t in th)
+            or any(pair_tag in th for _, pair_tag in raw_players_list)
+        )
+        if is_human:
+            active_player_tags.add(cur_tag)
+
+    # 3. Resolve player names for all active player countries
+    # Pass 1: exact match on current tag
+    for cur_tag in sorted(active_player_tags):
+        for p, t in reversed(raw_players_list):
+            if t == cur_tag and p not in used_players:
+                tag_to_player[cur_tag] = p
+                used_players.add(p)
+                break
+
+    # Pass 2: match on historical predecessor tag (e.g. BAH -> SKE, BUR -> FRA, CAS -> SPA)
+    for cur_tag in sorted(active_player_tags):
+        if cur_tag in tag_to_player:
+            continue
+        th = living_countries[cur_tag]
+        for prev_t in th:
+            for p, t in reversed(raw_players_list):
+                if t == prev_t and p not in used_players:
+                    tag_to_player[cur_tag] = p
+                    used_players.add(p)
+                    break
+            if cur_tag in tag_to_player:
+                break
+
+    # Pass 3: match remaining unassigned players to unassigned active tags
+    remaining_players = [p for p, _ in raw_players_list if p not in used_players]
+    for cur_tag in sorted(active_player_tags):
+        if cur_tag not in tag_to_player:
+            if remaining_players:
+                p_name = remaining_players.pop(0)
+                used_players.add(p_name)
+                tag_to_player[cur_tag] = p_name
+            else:
+                tag_to_player[cur_tag] = "Unknown"
+
+    # Update players_countries map with active tags
+    for cur_tag, p_name in tag_to_player.items():
+        if p_name != "Unknown":
+            players_countries[p_name] = cur_tag
 
     # Build global defender-of-faith set: check religion_instance_data
     dof_tags: set[str] = set()
@@ -1284,7 +1383,6 @@ def load_save_full(
 
     # Build advisor job-type map from province histories (advisors are recorded there)
     all_advisor_ids: set[int] = set()
-    countries_node = root.get_node("countries")
     if countries_node:
         for tag in tag_to_player:
             cn = countries_node.get_node(tag)
@@ -1301,8 +1399,9 @@ def load_save_full(
 
     # Province scan — returns extended data
     coastal_provinces = getattr(game_data, "coastal_provinces", None) if game_data else None
+    active_scan_tags = set(tag_to_player.keys()) | {cd.tag for cd in countries}
     most_dev, tag_province_counts, province_owner_map, tag_base_manpower, tag_province_sets, tag_province_lfl, tag_province_nfl, tag_province_modifiers, prov_info_map, tag_real_dev = \
-        _scan_provinces(root, set(tag_to_player.keys()), coastal_provinces=coastal_provinces)
+        _scan_provinces(root, active_scan_tags, coastal_provinces=coastal_provinces)
 
     # Enrich province data with area and state prosperity
     prov_to_area = _load_prov_to_area()
